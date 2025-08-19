@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     cors_methods: List[str] = ["*"]
     cors_headers: List[str] = ["*"]
     
+    #LENS API SETTINGS
+    lens_url: str
+    lens_token: str
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
