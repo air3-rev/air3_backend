@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db, User
-from app.schemas import UserResponse, UserUpdate, UserCreate
+from app.schemas.schemas import UserResponse, UserUpdate, UserCreate
 from app.supabase_auth import get_current_user_from_supabase, get_optional_user
 
 router = APIRouter()
