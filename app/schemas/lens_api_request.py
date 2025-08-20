@@ -50,9 +50,11 @@ class LensQuery(BaseModel):
     ]
 
 
-class SortField(BaseModel):
-    field: Dict[str, Literal["asc", "desc"]]
+from typing import Literal, Dict
+from pydantic import RootModel
 
+class SortField(RootModel[Dict[str, Literal["asc", "desc"]]]):
+    pass
 
 # In app/schemas/lens_api_request.py
 from pydantic import BaseModel, Field

@@ -137,38 +137,38 @@ class RetractionUpdate(BaseModel):
 
 class ScholarResponse(BaseModel):
     lens_id: str
-    created: Optional[datetime]
-    publication_type: Optional[PublicationType]
-    publication_supplementary_type: Optional[List[str]]
-    authors: Optional[List[Author]]
-    title: Optional[str]
-    external_ids: Optional[List[Ids]]
-    start_page: Optional[str]
-    end_page: Optional[str]
-    volume: Optional[str]
-    issue: Optional[str]
-    languages: Optional[List[str]]
-    references: Optional[List[Reference]]
-    references_count: Optional[int]
-    references_resolved_count: Optional[int]
-    scholarly_citations: Optional[List[str]]
-    scholarly_citations_count: Optional[int]
-    patent_citations: Optional[List[PatentCitation]]
-    patent_citations_count: Optional[int]
-    chemicals: Optional[List[Chemical]]
-    clinical_trials: Optional[List[ClinicalTrial]]
-    fields_of_study: Optional[List[str]]
-    source_urls: Optional[List[SourceUrl]]
-    abstract: Optional[str]
-    date_published: Optional[date]
-    date_published_parts: Optional[List[int]]
-    year_published: Optional[int]
-    conference: Optional[Conference]
-    author_count: Optional[int]
-    open_access: Optional[OpenAccess]
-    source: Optional[Source]
-    keywords: Optional[List[str]]
-    mesh_terms: Optional[List[MeshTerm]]
-    funding: Optional[List[Funding]]
-    retraction_updates: Optional[List[RetractionUpdate]]
+    created: Optional[datetime] = None
+    publication_type: Optional[PublicationType] = None
+    publication_supplementary_type: Optional[List[str]] = None
+    authors: Optional[List[Author]] = None
+    title: Optional[str] = None
+    external_ids: Optional[List[Ids]] = None
+    start_page: Optional[str] = None
+    end_page: Optional[str] = None
+    volume: Optional[str] = None
+    issue: Optional[str] = None
+    languages: Optional[List[str]] = None
+    references: Optional[List[Reference]] = None
+    references_count: Optional[int] = None
+    references_resolved_count: Optional[int] = None
+    scholarly_citations: Optional[List[str]] = None
+    scholarly_citations_count: Optional[int] = None
+    patent_citations: Optional[List[PatentCitation]] = None
+    patent_citations_count: Optional[int] = None
+    chemicals: Optional[List[Chemical]] = None
+    clinical_trials: Optional[List[ClinicalTrial]] = None
+    fields_of_study: Optional[List[str]] = None
+    source_urls: Optional[List[SourceUrl]] = None
+    abstract: Optional[str] = None
+    date_published: Optional[date] = None
+    date_published_parts: Optional[List[int]] = None
+    year_published: Optional[int] = None
+    conference: Optional[Conference] = None
+    author_count: Optional[int] = None
+    open_access: Optional[OpenAccess] = None
+    source: Optional[Source] = None
+    keywords: Optional[List[str]] = None
+    mesh_terms: Optional[List[MeshTerm]] = None
+    funding: Optional[List[Funding]] = None
+    retraction_updates: Optional[List[RetractionUpdate]] = None
 
