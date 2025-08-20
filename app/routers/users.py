@@ -1,6 +1,8 @@
 import json
 from typing import List, Optional
 from app.schemas.lens_api_request import UserLensSearchInput
+from app.schemas.search_response import EnrichedSearchResponse, PaginationMetadata
+from app.schemas.lens_api_response import ScholarResponse
 from app.services.lens_client import LensAPIClient, build_example_request, build_lens_request
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -104,9 +106,12 @@ async def test_lens_search() -> Any:
 
         logger.info(f"Payload dict: {payload.dict()}")
         
-        results = client.search(payload)
-        logger.info(f"Got {len(results)} results")
-        return [r.dict() for r in results]
+        api_response = client.search(payload)
+        logger.info(f"Got {api_response.total} total results, returning {len(api_response.data)} items")
+        
+        # Parse the raw data into ScholarResponse objects for the test
+        parsed_results = [ScholarResponse(**item) for item in api_response.data]
+        return [r.dict() for r in parsed_results]
     except Exception as e:
         logger.exception("Lens API test search failed")
         logger.error(f"Error type: {type(e)}")
@@ -115,12 +120,32 @@ async def test_lens_search() -> Any:
     
     
     
-@router.post("/search", response_model=List[dict])
-async def dynamic_lens_search(input: UserLensSearchInput):
+@router.post("/search", response_model=EnrichedSearchResponse)
+async def dynamic_lens_search(input: UserLensSearchInput) -> EnrichedSearchResponse:
+    """
+    Dynamic search route that returns enriched results with pagination metadata.
+    """
     try:
         client = LensAPIClient()
         request_payload = build_lens_request(input)
-        results = client.search(request_payload)
-        return [r.dict() for r in results]
+        api_response = client.search(request_payload)
+        
+        # Parse the raw data into ScholarResponse objects
+        parsed_articles = [ScholarResponse(**item) for item in api_response.data]
+        
+        # Create pagination metadata
+        pagination = PaginationMetadata.create(
+            total=api_response.total,
+            offset=input.offset or 0,
+            size=input.size or 10
+        )
+        
+        # Build the enriched response
+        return EnrichedSearchResponse(
+            data=parsed_articles,
+            pagination=pagination,
+            max_score=api_response.max_score
+        )
     except Exception as e:
+        logger.exception("Dynamic lens search failed")
         raise HTTPException(status_code=500, detail=str(e))

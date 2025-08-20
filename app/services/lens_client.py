@@ -7,6 +7,7 @@ from typing import List
 
 from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, QueryStringQuery, RangeQuery, SortField, UserLensSearchInput
 from app.schemas.lens_api_response import ScholarResponse
+from app.schemas.search_response import LensAPIFullResponse
 from pydantic import ValidationError
 
 from app.config import settings
@@ -24,7 +25,7 @@ class LensAPIClient:
         self._url = f"{settings.LENS_URL}/search"
         self._token = settings.LENS_TOKEN
 
-    def search(self, payload: LensSearchRequest) -> List[ScholarResponse]:
+    def search(self, payload: LensSearchRequest) -> LensAPIFullResponse:
         """
         Sends a search request to the Lens.org API.
 
@@ -32,7 +33,7 @@ class LensAPIClient:
             payload (LensSearchRequest): The structured search query.
 
         Returns:
-            List[ScholarResponse]: Parsed list of scholarly search results.
+            LensAPIFullResponse: Complete API response with total, max_score, and data.
         """
         try:
             response = requests.post(
@@ -46,7 +47,13 @@ class LensAPIClient:
             )
             response.raise_for_status()
             data = response.json()
-            return [ScholarResponse(**item) for item in data.get("data", [])]
+            
+            # Extract the complete response structure
+            return LensAPIFullResponse(
+                total=data.get("total", 0),
+                max_score=data.get("max_score"),
+                data=data.get("data", [])
+            )
         except requests.RequestException as e:
             logger.error(f"HTTP request to Lens failed: {e}")
             raise
