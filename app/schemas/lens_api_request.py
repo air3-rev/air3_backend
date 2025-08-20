@@ -89,3 +89,15 @@ class LensSearchRequest(BaseModel):
     class Config:
         populate_by_name = True
         str_strip_whitespace = True
+
+
+class UserLensSearchInput(BaseModel):
+    query_string: str = Field(..., example='"Skill Ontology"')
+    fields: List[str] = Field(default_factory=lambda: ["title", "abstract", "full_text"])
+    default_operator: Literal["and", "or"] = "and"
+    year_from: Optional[int] = None
+    year_to: Optional[int] = None
+    sort_by: Optional[List[Dict[str, Literal["asc", "desc"]]]] = Field(default_factory=lambda: [{"relevance": "desc"}])
+    include_fields: Optional[List[str]] = Field(default_factory=lambda: ["title", "abstract", "lens_id", "year_published"])
+    size: Optional[int] = 10
+    offset: Optional[int] = 0

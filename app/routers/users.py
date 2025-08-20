@@ -1,6 +1,7 @@
 import json
 from typing import List, Optional
-from app.services.lens_client import LensAPIClient, build_example_request
+from app.schemas.lens_api_request import UserLensSearchInput
+from app.services.lens_client import LensAPIClient, build_example_request, build_lens_request
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
@@ -110,4 +111,16 @@ async def test_lens_search() -> Any:
         logger.exception("Lens API test search failed")
         logger.error(f"Error type: {type(e)}")
         logger.error(f"Error details: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+    
+@router.post("/search", response_model=List[dict])
+async def dynamic_lens_search(input: UserLensSearchInput):
+    try:
+        client = LensAPIClient()
+        request_payload = build_lens_request(input)
+        results = client.search(request_payload)
+        return [r.dict() for r in results]
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

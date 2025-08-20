@@ -5,7 +5,7 @@ import logging
 import requests
 from typing import List
 
-from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, QueryStringQuery, RangeQuery, SortField
+from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, QueryStringQuery, RangeQuery, SortField, UserLensSearchInput
 from app.schemas.lens_api_response import ScholarResponse
 from pydantic import ValidationError
 
@@ -107,3 +107,41 @@ def build_example_request() -> LensSearchRequest:
     )
     logger.info(f"Built LensSearchRequest: {request}")
     return request
+
+
+def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
+    logger.info("Building dynamic LensSearchRequest from user input")
+
+    query = QueryStringQuery(
+        query_string={
+            "query": user_input.query_string,
+            "fields": user_input.fields,
+            "default_operator": user_input.default_operator
+        }
+    )
+
+    must_clauses = [query]
+    filter_clauses = []
+
+    if user_input.year_from or user_input.year_to:
+        range_clause = {
+            "year_published": {}
+        }
+        if user_input.year_from:
+            range_clause["year_published"]["gte"] = user_input.year_from
+        if user_input.year_to:
+            range_clause["year_published"]["lte"] = user_input.year_to
+
+        filter_clauses.append(RangeQuery(range=range_clause))
+
+    bool_query = BoolQuery(must=must_clauses, filter=filter_clauses)
+
+    sort = [SortField(s) for s in user_input.sort_by]
+
+    return LensSearchRequest(
+        query={"bool": bool_query},
+        sort=sort,
+        include=user_input.include_fields,
+        size=user_input.size,
+        from_=user_input.offset
+    )
