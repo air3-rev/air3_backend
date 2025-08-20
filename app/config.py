@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional, List
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -26,8 +27,8 @@ class Settings(BaseSettings):
     cors_headers: List[str] = ["*"]
     
     #LENS API SETTINGS
-    lens_url: str
-    lens_token: str
+    LENS_URL: str = Field(..., alias="LENS_URL")
+    LENS_TOKEN: str = Field(..., alias="LENS_TOKEN")
     
     class Config:
         env_file = ".env"
