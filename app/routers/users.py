@@ -1,12 +1,16 @@
+import json
 from typing import List, Optional
+from app.services.lens_client import LensAPIClient, build_example_request
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import logging
 
 from app.database import get_db, User
 from app.schemas.user import UserResponse, UserUpdate, UserCreate
 from app.supabase_auth import get_current_user_from_supabase, get_optional_user
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/list", response_model=List[UserResponse])
@@ -82,3 +86,28 @@ async def read_current_user(current_user: User = Depends(get_current_user_from_s
 #     db.refresh(db_user)
     
 #     return db_user
+from typing import Any
+
+@router.get("/test-search", response_model=None)
+async def test_lens_search() -> Any:
+    """
+    Test route to call the Lens API with an example request.
+    """
+    try:
+        logger.info("Starting test lens search...")
+        client = LensAPIClient()
+        logger.info("Created LensAPIClient")
+        
+        payload = build_example_request()
+        logger.info("Final JSON payload:\n%s", json.dumps(payload.dict(by_alias=True), indent=2))
+
+        logger.info(f"Payload dict: {payload.dict()}")
+        
+        results = client.search(payload)
+        logger.info(f"Got {len(results)} results")
+        return [r.dict() for r in results]
+    except Exception as e:
+        logger.exception("Lens API test search failed")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Error details: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
