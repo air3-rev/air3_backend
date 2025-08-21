@@ -16,7 +16,7 @@ class PaginationMetadata(BaseModel):
     def create(cls, total: int, offset: int, size: int) -> "PaginationMetadata":
         """Create pagination metadata from offset-based parameters"""
         current_page = (offset // size) + 1 if size > 0 else 1
-        total_pages = ceil(total / size) if size > 0 else 1
+        total_pages = ceil(total / size) if size > 0 and total > 0 else 1
         
         return cls(
             total=total,
