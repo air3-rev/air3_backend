@@ -36,15 +36,25 @@ class LensAPIClient:
             LensAPIFullResponse: Complete API response with total, max_score, and data.
         """
         try:
+            request_data = payload.dict(by_alias=True)
+            logger.info(f"Sending request to Lens API: {self._url}")
+            logger.info(f"Request headers: Content-Type: application/json, Authorization: [REDACTED]")
+            logger.info(f"Request payload: {request_data}")
+            
             response = requests.post(
                 self._url,
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": self._token,
                 },
-                json=payload.dict(by_alias=True),
+                json=request_data,
                 timeout=30,
             )
+            
+            logger.info(f"Response status: {response.status_code}")
+            if not response.ok:
+                logger.error(f"Response body: {response.text}")
+            
             response.raise_for_status()
             data = response.json()
             
@@ -118,14 +128,22 @@ def build_example_request() -> LensSearchRequest:
 
 def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
     logger.info("Building dynamic LensSearchRequest from user input")
+    logger.info(f"User input: {user_input.dict()}")
+
+    # Validate and clean the query string
+    query_string = user_input.query_string.strip()
+    if not query_string:
+        query_string = '"research"'  # Fallback query
+        logger.warning("Empty query string provided, using fallback")
 
     query = QueryStringQuery(
         query_string={
-            "query": user_input.query_string,
+            "query": query_string,
             "fields": user_input.fields,
             "default_operator": user_input.default_operator
         }
     )
+    logger.info(f"Built QueryStringQuery: {query.dict()}")
 
     must_clauses = [query]
     filter_clauses = []
@@ -139,16 +157,45 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
         if user_input.year_to:
             range_clause["year_published"]["lte"] = user_input.year_to
 
-        filter_clauses.append(RangeQuery(range=range_clause))
+        range_query = RangeQuery(range=range_clause)
+        filter_clauses.append(range_query)
+        logger.info(f"Added range filter: {range_query.dict()}")
 
-    bool_query = BoolQuery(must=must_clauses, filter=filter_clauses)
+    bool_query = BoolQuery(must=must_clauses, filter=filter_clauses if filter_clauses else None)
+    logger.info(f"Built BoolQuery: {bool_query.dict()}")
 
-    sort = [SortField(s) for s in user_input.sort_by]
+    # Handle sort fields more carefully - use simple format that works
+    sort = []
+    if user_input.sort_by:
+        for sort_item in user_input.sort_by:
+            try:
+                # Ensure the sort item is in the correct format
+                if isinstance(sort_item, dict) and len(sort_item) == 1:
+                    sort_field = SortField(sort_item)
+                    sort.append(sort_field)
+                else:
+                    logger.warning(f"Invalid sort format: {sort_item}, using default")
+                    sort.append(SortField({"relevance": "desc"}))
+            except Exception as e:
+                logger.warning(f"Failed to create sort field from {sort_item}: {e}")
+                sort.append(SortField({"relevance": "desc"}))
+    
+    # If no valid sort fields, add default
+    if not sort:
+        sort.append(SortField({"relevance": "desc"}))
+    
+    logger.info(f"Built sort fields: {[s.root if hasattr(s, 'root') else s for s in sort]}")
 
-    return LensSearchRequest(
+    # Ensure size and offset are reasonable
+    size = min(user_input.size or 10, 100)  # Cap at 100
+    offset = max(user_input.offset or 0, 0)  # Ensure non-negative
+
+    request = LensSearchRequest(
         query={"bool": bool_query},
         sort=sort,
         include=user_input.include_fields,
-        size=user_input.size,
-        from_=user_input.offset
+        size=size,
+        from_=offset
     )
+    logger.info(f"Final LensSearchRequest: {request.dict(by_alias=True)}")
+    return request

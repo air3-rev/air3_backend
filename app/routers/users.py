@@ -130,8 +130,35 @@ async def dynamic_lens_search(input: UserLensSearchInput) -> EnrichedSearchRespo
         request_payload = build_lens_request(input)
         api_response = client.search(request_payload)
         
-        # Parse the raw data into ScholarResponse objects
-        parsed_articles = [ScholarResponse(**item) for item in api_response.data]
+        # Parse the raw data into ScholarResponse objects with error handling
+        parsed_articles = []
+        for item in api_response.data:
+            try:
+                # Fill in missing required fields with defaults
+                if 'authors' in item and item['authors']:
+                    for author in item['authors']:
+                        if 'collective_name' not in author:
+                            author['collective_name'] = None
+                        if 'affiliations' not in author:
+                            author['affiliations'] = []
+                
+                if 'source' in item and item['source']:
+                    source = item['source']
+                    if 'type' not in source:
+                        source['type'] = None
+                    if 'issn' not in source:
+                        source['issn'] = []
+                    if 'country' not in source:
+                        source['country'] = None
+                    if 'asjc_codes' not in source:
+                        source['asjc_codes'] = None
+                    if 'asjc_subjects' not in source:
+                        source['asjc_subjects'] = None
+                
+                parsed_articles.append(ScholarResponse(**item))
+            except Exception as e:
+                logger.warning(f"Failed to parse article: {e}, skipping item")
+                continue
         
         # Create pagination metadata
         pagination = PaginationMetadata.create(

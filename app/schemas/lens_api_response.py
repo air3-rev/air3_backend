@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class PublicationType(str, Enum):
@@ -42,19 +42,19 @@ class Ids(BaseModel):
 
 class Affiliation(BaseModel):
     name: Optional[str]
-    name_original: Optional[str]
-    grid_id: Optional[str]
-    country_code: Optional[str]
-    ids: Optional[List[Ids]]
+    name_original: Optional[str] = None
+    grid_id: Optional[str] = None
+    country_code: Optional[str] = None
+    ids: Optional[List[Ids]] = None
 
 
 class Author(BaseModel):
-    collective_name: Optional[str]
-    first_name: Optional[str]
-    last_name: Optional[str]
-    initials: Optional[str]
-    affiliations: Optional[List[Affiliation]]
-    ids: Optional[List[Ids]]
+    collective_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    initials: Optional[str] = None
+    affiliations: Optional[List[Affiliation]] = None
+    ids: Optional[List[Ids]] = None
 
 
 class Reference(BaseModel):
@@ -105,13 +105,27 @@ class Issn(BaseModel):
 
 
 class Source(BaseModel):
-    title: Optional[str]
-    type: Optional[str]
-    publisher: Optional[str]
-    issn: Optional[List[Issn]]
-    country: Optional[str]
-    asjc_codes: Optional[str]
-    asjc_subjects: Optional[str]
+    title: Optional[str] = None
+    type: Optional[str] = None
+    publisher: Optional[str] = None
+    issn: Optional[List[Issn]] = None
+    country: Optional[str] = None
+    asjc_codes: Optional[Union[str, List[str]]] = None
+    asjc_subjects: Optional[Union[str, List[str]]] = None
+    
+    @validator('asjc_codes', pre=True)
+    def validate_asjc_codes(cls, v):
+        """Convert list to string if needed"""
+        if isinstance(v, list):
+            return ",".join(str(item) for item in v)
+        return v
+    
+    @validator('asjc_subjects', pre=True)
+    def validate_asjc_subjects(cls, v):
+        """Convert list to string if needed"""
+        if isinstance(v, list):
+            return "; ".join(str(item) for item in v)
+        return v
 
 
 class MeshTerm(BaseModel):
