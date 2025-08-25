@@ -5,7 +5,7 @@ import logging
 import requests
 from typing import List
 
-from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, QueryStringQuery, RangeQuery, SortField, UserLensSearchInput
+from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, MatchQuery, QueryStringQuery, RangeQuery, SortField, UserLensSearchInput
 from app.schemas.lens_api_response import ScholarResponse
 from app.schemas.search_response import LensAPIFullResponse
 from pydantic import ValidationError
@@ -160,6 +160,12 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
         range_query = RangeQuery(range=range_clause)
         filter_clauses.append(range_query)
         logger.info(f"Added range filter: {range_query.dict()}")
+
+    # Add open access filter if requested
+    if user_input.open_access_only:
+        open_access_query = MatchQuery(match={"is_open_access": True})
+        filter_clauses.append(open_access_query)
+        logger.info(f"Added open access filter: {open_access_query.dict()}")
 
     bool_query = BoolQuery(must=must_clauses, filter=filter_clauses if filter_clauses else None)
     logger.info(f"Built BoolQuery: {bool_query.dict()}")

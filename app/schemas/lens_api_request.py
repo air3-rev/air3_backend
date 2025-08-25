@@ -101,3 +101,4 @@ class UserLensSearchInput(BaseModel):
     include_fields: Optional[List[str]] = Field(default_factory=lambda: ["title", "abstract", "lens_id", "year_published"])
     size: Optional[int] = 10
     offset: Optional[int] = 0
+    open_access_only: Optional[bool] = None
