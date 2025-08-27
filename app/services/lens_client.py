@@ -5,7 +5,7 @@ import logging
 import requests
 from typing import List
 
-from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, MatchQuery, QueryStringQuery, RangeQuery, SortField, UserLensSearchInput
+from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, MatchQuery, QueryStringQuery, RangeQuery, SortField, TermQuery, UserLensSearchInput
 from app.schemas.lens_api_response import ScholarResponse
 from app.schemas.search_response import LensAPIFullResponse
 from pydantic import ValidationError
@@ -166,6 +166,57 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
         open_access_query = MatchQuery(match={"is_open_access": True})
         filter_clauses.append(open_access_query)
         logger.info(f"Added open access filter: {open_access_query.dict()}")
+
+    # Add publication types filter if requested
+    if user_input.publication_types and len(user_input.publication_types) > 0:
+        # Map frontend publication types to Lens API values
+        publication_type_mapping = {
+            "JournalArticle": "journal article",
+            "Review": "journal article",  # Reviews are typically journal articles
+            "Book": "book",
+            "Conference": "conference proceedings",
+            "Thesis": "component",  # Closest match for thesis
+            "Other": "component",
+            "Conference": "conference proceedings"
+        }
+        
+        # Get all possible publication types
+        all_possible_types = set(publication_type_mapping.keys())
+        selected_types = set(user_input.publication_types)
+        
+        # Only add publication type filters if not all types are selected
+        if selected_types != all_possible_types and len(selected_types) < len(all_possible_types):
+            # Map selected types to Lens API values and remove duplicates
+            lens_pub_types = list(set(
+                publication_type_mapping.get(pub_type, pub_type.lower())
+                for pub_type in user_input.publication_types
+            ))
+            
+            # If only one unique type, use match query
+            if len(lens_pub_types) == 1:
+                pub_type_query = MatchQuery(match={"publication_type": lens_pub_types[0]})
+                must_clauses.append(pub_type_query)
+                logger.info(f"Added single publication type filter: {pub_type_query.dict()}")
+            else:
+                # If multiple types, use should clause (OR logic)
+                should_clauses = [
+                    MatchQuery(match={"publication_type": pub_type})
+                    for pub_type in lens_pub_types
+                ]
+                pub_type_bool_query = BoolQuery(should=should_clauses)
+                # Add the bool query as a proper dict structure
+                must_clauses.append({"bool": pub_type_bool_query.dict()})
+                logger.info(f"Added multiple publication type filters: {len(lens_pub_types)} types")
+        else:
+            logger.info("All publication types selected - skipping publication type filter")
+
+    # Add min citations filter if requested (only if > 0)
+    if user_input.min_citations is not None and user_input.min_citations > 0:
+        citations_query = RangeQuery(range={"cited_by_count": {"gte": user_input.min_citations}})
+        filter_clauses.append(citations_query)
+        logger.info(f"Added min citations filter: {citations_query.dict()}")
+    else:
+        logger.info("Min citations is 0 or not set - skipping citations filter")
 
     bool_query = BoolQuery(must=must_clauses, filter=filter_clauses if filter_clauses else None)
     logger.info(f"Built BoolQuery: {bool_query.dict()}")
