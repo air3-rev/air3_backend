@@ -47,39 +47,39 @@ A modern, production-ready Python API built with FastAPI, designed for Supabase 
 ### Local Development
 
 1. **Clone and setup**:
+
    ```bash
    git clone <repository-url>
-   cd simple-python-api
+   cd air3-backend
    ```
 
-2. **Create virtual environment**:
+2. **Install dependencies**:
+
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+     uv sync
+
    ```
 
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+3. **Setup environment**:
 
-4. **Setup environment**:
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
-5. **Run the application**:
+4. **Run the application**:
+
    ```bash
    python run.py
    ```
 
    Or using uvicorn directly:
+
    ```bash
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-6. **Access the API**:
+5. **Access the API**:
    - API: http://localhost:8000
    - Documentation: http://localhost:8000/docs
    - Alternative docs: http://localhost:8000/redoc
@@ -88,17 +88,20 @@ A modern, production-ready Python API built with FastAPI, designed for Supabase 
 ### Docker Deployment
 
 1. **Build and run with Docker**:
+
    ```bash
-   docker build -t simple-python-api .
-   docker run -p 8000:8000 simple-python-api
+   docker build -t air3-backend .
+   docker run -p 8000:8000 air3-backend
    ```
 
 2. **Or use docker-compose for full stack**:
+
    ```bash
    docker-compose up -d
    ```
 
    This will start:
+
    - API server on port 8000
    - PostgreSQL database on port 5432
    - Redis cache on port 6379
@@ -107,6 +110,7 @@ A modern, production-ready Python API built with FastAPI, designed for Supabase 
 ## API Endpoints
 
 ### Users
+
 - `GET /api/v1/users/` - List all users (public)
 - `GET /api/v1/users/{user_id}` - Get user by ID
 - `GET /api/v1/users/me` - Get current user profile (requires auth)
@@ -114,6 +118,7 @@ A modern, production-ready Python API built with FastAPI, designed for Supabase 
 - `POST /api/v1/users/sync` - Sync user from Supabase (called by frontend)
 
 ### Items
+
 - `POST /api/v1/items/` - Create new item (requires auth)
 - `GET /api/v1/items/` - Get items (user's own if authenticated, public if not)
 - `GET /api/v1/items/all` - Get all public items
@@ -124,6 +129,7 @@ A modern, production-ready Python API built with FastAPI, designed for Supabase 
 - `GET /api/v1/items/search?q={query}` - Search items
 
 ### System
+
 - `GET /` - API information
 - `GET /health` - Health check
 
@@ -174,6 +180,7 @@ pytest -v
 4. **Access Protected Routes**: All `/api/v1/users/` and `/api/v1/items/` routes require authentication
 
 Example:
+
 ```bash
 # Register
 curl -X POST "http://localhost:8000/api/v1/auth/register" \

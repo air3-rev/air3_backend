@@ -1,0 +1,29 @@
+[project]
+name = "air3-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+  "uvicorn[standard]==0.24.0",
+  "python-multipart==0.0.6",
+  "pyjwt==2.8.0",
+  "python-decouple==3.8",
+  "sqlalchemy==2.0.23",
+  "alembic==1.12.1",
+  "requests==2.31.0",
+  "pydantic>=2.11.7",
+  "fastapi>=0.116.1",
+  "psycopg-binary>=3.2.9",
+  "pydantic-settings>=2.10.1",
+]
+
+[tool.uv]
+dev-dependencies = [
+  "pytest==7.4.3",
+  "pytest-asyncio==0.21.1",
+  "httpx==0.25.2",
+  "ruff==0.6.9",
+  "mypy==1.11.2"
+]
