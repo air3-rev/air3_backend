@@ -10,13 +10,19 @@ dependencies = [
   "python-multipart==0.0.6",
   "pyjwt==2.8.0",
   "python-decouple==3.8",
-  "sqlalchemy==2.0.23",
-  "alembic==1.12.1",
+  "sqlalchemy>=2.0.31,<3",
+  "alembic>=1.15,<2",
   "requests==2.31.0",
-  "pydantic>=2.11.7",
+  "pydantic>=2.11,<3",
   "fastapi>=0.116.1",
   "psycopg-binary>=3.2.9",
-  "pydantic-settings>=2.10.1",
+  "pydantic-settings>=2.8,<3",
+  "email-validator>=2.1.1",
+  "psycopg[binary]>=3.2.9",
+  "langchain>=0.3.27",
+  "tiktoken>=0.11.0",
+  "pymupdf>=1.26.4",
+  "langchain-openai>=0.3.32",
 ]
 
 [tool.uv]
