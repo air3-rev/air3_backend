@@ -2,9 +2,9 @@
 
 import logging
 
-# import tiktoken
 from fastapi import APIRouter, File, UploadFile, status
 
+from app.services.data_extraction.main import extract_data as extract_data_service
 from app.services.data_ingestion.main import ingest_file as ingest_file_service
 
 router = APIRouter()
@@ -18,10 +18,10 @@ async def ingest_file(
     ingest_file_service(file)
 
 
-# @router.get("/extract-data")
-# async def extract_data_from_file(
-#     file: File,
-#     extract_label: str,
-# ):
-#     """Extract data from a file based on user input, and return information."""
-#     pass
+@router.get("/extract-data")
+async def extract_data_from_file(
+    extract_label: str,
+):
+    """Extract data from a file based on user input, and return information."""
+
+    extract_data_service(extract_label)
