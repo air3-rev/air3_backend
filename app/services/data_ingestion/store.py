@@ -2,6 +2,7 @@ import logging
 import os
 from typing import List
 
+from app.constants import EMBED_MODEL, QUERY_RPC, TABLE_NAME
 from dotenv import load_dotenv
 from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_core.documents import Document
@@ -15,11 +16,7 @@ load_dotenv()
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
-CHUNK_SIZE = 1000
-EMBED_MODEL = "text-embedding-3-small"
 
-TABLE_NAME = "z_documents"  # LangChain nnot default (documents is default)
-QUERY_RPC = "match_documents"  # LangChain default RPC name
 
 embeddings_model = OpenAIEmbeddings(model=EMBED_MODEL)
 

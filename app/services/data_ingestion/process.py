@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from app.constants import CHUNK_SIZE
 import tiktoken
 from langchain_core.documents import Document
 
@@ -11,7 +12,7 @@ from app.services.data_ingestion.types import PdfDocument
 
 logger = logging.getLogger(__name__)
 
-CHUNK_TOKENS = 1000
+
 CHUNK_OVERLAP = 200
 # EMBED_MODEL = "text-embedding-3-large"  # 3072-d
 # embeddings_model = OpenAIEmbeddings(model=EMBED_MODEL)
@@ -32,7 +33,7 @@ def chunk_document(pdf_doc: PdfDocument) -> List[Document]:
         return []
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_TOKENS,
+        chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
         length_function=_tiktoken_len,  # token-aware
         separators=["\n\n", "\n", ". ", " ", ""],
