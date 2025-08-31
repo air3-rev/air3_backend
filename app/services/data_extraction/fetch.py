@@ -4,30 +4,29 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
 
-from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
 from supabase import Client, create_client
 
+from app.constants import EMBED_MODEL, QUERY_RPC
 logger = logging.getLogger(__name__)
+from app.config import settings
 
-load_dotenv()
-EMBED_MODEL = (
-    "text-embedding-3-small"  # 1536-dim recommended (HNSW supports <= 2000 dims)
+
+
+_embeddings = OpenAIEmbeddings(
+    model=EMBED_MODEL,
+    api_key=settings.openai_api_key,   # <-- snake_case field recommended
 )
-RPC_NAME = "match_documents"
-
-_embeddings = OpenAIEmbeddings(model=EMBED_MODEL)
 _supabase: Optional[Client] = None
 
 
 def _get_supabase() -> Client:
     global _supabase
     if _supabase is None:
-        url = os.environ["SUPABASE_URL"]
-        key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]  # must be service role on server
+        url = settings.supabase_url
+        key = settings.supabase_service_role_key  # must be service role on server
         _supabase = create_client(url, key)
     return _supabase
 
@@ -54,7 +53,7 @@ def fetch_relevant_chunks(
         "filter": {"doc_id": filter_doc_id} if filter_doc_id else None,
     }
     try:
-        res = _get_supabase().rpc(RPC_NAME, params).execute()
+        res = _get_supabase().rpc(QUERY_RPC, params).execute()
         rows = res.data or []  # <- No .error; just use .data
     except Exception as e:
         # Optional: log and re-raise as 500 upstream

@@ -29,13 +29,11 @@ class Settings(BaseSettings):
     cors_headers: List[str] = ["*"]
 
     # LENS API SETTINGS
-    LENS_URL: str = Field(..., alias="LENS_URL")
-    LENS_TOKEN: str = Field(..., alias="LENS_TOKEN")
+    lens_url: Optional[str] = None
+    lens_token: Optional[str] = None
 
-    OPENAI_API_KEY: str = Field(..., alias="OPENAI_API_KEY")
-
-    SUPABASE_SERVICE_ROLE_KEY: str = Field(..., alias="OPENAI_API_KEY")
-
+    # OPEN AI SETTINGS
+    openai_api_key: Optional[str] = None
     class Config:
         env_file = ".env"
         case_sensitive = False
