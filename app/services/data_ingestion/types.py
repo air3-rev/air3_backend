@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -19,3 +19,10 @@ class PdfDocument(BaseModel):
     title: Optional[str] = None
     author: Optional[str] = None
     num_pages: Optional[int] = None
+
+
+class Chunk(BaseModel):
+    id: Optional[str]
+    text: str
+    metadata: Dict[str, Any]
+    similarity: float

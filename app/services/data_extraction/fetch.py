@@ -10,11 +10,12 @@ from langchain_openai import OpenAIEmbeddings
 from supabase import Client, create_client
 
 from app.constants import EMBED_MODEL, QUERY_RPC
-logger = logging.getLogger(__name__)
 from app.config import settings
 
+from app.services.data_ingestion.types import Chunk
 
 
+logger = logging.getLogger(__name__)
 _embeddings = OpenAIEmbeddings(
     model=EMBED_MODEL,
     api_key=settings.openai_api_key,   # <-- snake_case field recommended
@@ -35,7 +36,7 @@ def fetch_relevant_chunks(
     label: str,
     k: int = 1,
     filter_doc_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+) -> List[Chunk]:
     """
     Given a label, run similarity search in Supabase and return top-k chunks with scores.
     Returns: [{ "text": ..., "metadata": {...}, "similarity": float, "id": <uuid> }, ...]
