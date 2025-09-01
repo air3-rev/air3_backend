@@ -91,35 +91,6 @@ async def read_current_user(current_user: User = Depends(get_current_user_from_s
 #     return db_user
 from typing import Any
 
-@router.get("/test-search", response_model=None)
-async def test_lens_search() -> Any:
-    """
-    Test route to call the Lens API with an example request.
-    """
-    try:
-        logger.info("Starting test lens search...")
-        client = LensAPIClient()
-        logger.info("Created LensAPIClient")
-        
-        payload = build_example_request()
-        logger.info("Final JSON payload:\n%s", json.dumps(payload.dict(by_alias=True), indent=2))
-
-        logger.info(f"Payload dict: {payload.dict()}")
-        
-        api_response = client.search(payload)
-        logger.info(f"Got {api_response.total} total results, returning {len(api_response.data)} items")
-        
-        # Parse the raw data into ScholarResponse objects for the test
-        parsed_results = [ScholarResponse(**item) for item in api_response.data]
-        return [r.dict() for r in parsed_results]
-    except Exception as e:
-        logger.exception("Lens API test search failed")
-        logger.error(f"Error type: {type(e)}")
-        logger.error(f"Error details: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-    
-    
-    
 @router.post("/search", response_model=EnrichedSearchResponse)
 async def dynamic_lens_search(input: UserLensSearchInput) -> EnrichedSearchResponse:
     """
