@@ -41,7 +41,7 @@ class Ids(BaseModel):
 
 
 class Affiliation(BaseModel):
-    name: Optional[str]
+    name: Optional[str] = None
     name_original: Optional[str] = None
     grid_id: Optional[str] = None
     country_code: Optional[str] = None
@@ -58,8 +58,8 @@ class Author(BaseModel):
 
 
 class Reference(BaseModel):
-    lens_id: Optional[str]
-    text: Optional[str]
+    lens_id: Optional[str] = None
+    text: Optional[str] = None
 
 
 class PatentCitation(BaseModel):
@@ -67,24 +67,24 @@ class PatentCitation(BaseModel):
 
 
 class Chemical(BaseModel):
-    mesh_id: Optional[str]
-    registry_number: Optional[str]
+    mesh_id: Optional[str] = None
+    registry_number: Optional[str] = None
     substance_name: Optional[str]
 
 
 class ClinicalTrial(BaseModel):
-    id: Optional[str]
+    id: Optional[str] = None
     registry: Optional[str]
 
 
 class SourceUrl(BaseModel):
-    type: Optional[str]
+    type: Optional[str] = None
     url: Optional[str]
 
 
 class Conference(BaseModel):
-    name: Optional[str]
-    instance: Optional[str]
+    name: Optional[str] = None
+    instance: Optional[str] = None
     location: Optional[str]
 
 
@@ -94,13 +94,13 @@ class OpenAccessLocation(BaseModel):
 
 
 class OpenAccess(BaseModel):
-    license: Optional[str]
-    colour: Optional[str]
+    license: Optional[str] = None
+    colour: Optional[str] = None
     locations: Optional[List[OpenAccessLocation]]
 
 
 class Issn(BaseModel):
-    value: Optional[str]
+    value: Optional[str] = None
     type: Optional[str]
 
 
@@ -129,28 +129,28 @@ class Source(BaseModel):
 
 
 class MeshTerm(BaseModel):
-    mesh_id: Optional[str]
-    mesh_heading: Optional[str]
-    qualifier_id: Optional[str]
+    mesh_id: Optional[str] = None
+    mesh_heading: Optional[str] = None
+    qualifier_id: Optional[str] = None
     qualifier_name: Optional[str]
 
 
 class Funding(BaseModel):
-    org: Optional[str]
-    funding_id: Optional[str]
+    org: Optional[str] = None
+    funding_id: Optional[str] = None
     country: Optional[str]
 
 
 class RetractionUpdate(BaseModel):
     updated: Optional[date]
-    update_nature: Optional[str]
+    update_nature: Optional[str] = None
     reasons: Optional[List[str]]
-    notes: Optional[str]
+    notes: Optional[str] = None
     urls: Optional[List[str]]
 
 
 class ScholarResponse(BaseModel):
-    lens_id: str
+    lens_id: Optional[str] = None
     created: Optional[datetime] = None
     publication_type: Optional[PublicationType] = None
     publication_supplementary_type: Optional[List[str]] = None
