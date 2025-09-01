@@ -211,8 +211,8 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
             logger.info("All publication types selected - skipping publication type filter")
 
     # Add min citations filter if requested (only if > 0)
-    if user_input.min_citations is not None and user_input.min_citations > 0:
-        citations_query = RangeQuery(range={"cited_by_count": {"gte": user_input.min_citations}})
+    if user_input.scholarly_citations_count is not None and user_input.scholarly_citations_count > 0:
+        citations_query = RangeQuery(range={"scholarly_citations_count": {"gte": user_input.scholarly_citations_count}})
         filter_clauses.append(citations_query)
         logger.info(f"Added min citations filter: {citations_query.dict()}")
     else:

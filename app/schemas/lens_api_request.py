@@ -103,4 +103,4 @@ class UserLensSearchInput(BaseModel):
     offset: Optional[int] = 0
     open_access_only: Optional[bool] = None
     publication_types: Optional[List[str]] = None
-    min_citations: Optional[int] = None
+    scholarly_citations_count: Optional[int] = None
