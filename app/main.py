@@ -45,6 +45,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
+    root_path="/api", 
 )
 
 # Add CORS middleware
@@ -102,9 +103,9 @@ async def root():
 
 
 # Include routers
-app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
-app.include_router(items.router, prefix="/api/v1/items", tags=["Items"])
-app.include_router(data_ingestion.router, prefix="/api/v1/data", tags=["Data"])
+app.include_router(users.router, prefix="/v1/users", tags=["Users"])
+app.include_router(items.router, prefix="/v1/items", tags=["Items"])
+app.include_router(data_ingestion.router, prefix="/v1/data", tags=["Data"])
 
 
 if __name__ == "__main__":
