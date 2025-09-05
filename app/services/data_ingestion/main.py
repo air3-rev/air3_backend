@@ -19,6 +19,3 @@ def ingest_file(file: UploadFile):
     logger.info("Document CHUNKS : ", document_chunks)
     logger.info("Baby, I'm-a want you !")
     store_in_vector_db(document_chunks)
-
-    # logger.info("Embedings: {}", embeddings)
-    # store_in_vector_db(embeddings)

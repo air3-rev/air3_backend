@@ -22,8 +22,8 @@ class LensAPIClient:
     """
 
     def __init__(self) -> None:
-        self._url = f"{settings.LENS_URL}/search"
-        self._token = settings.LENS_TOKEN
+        self._url = f"{settings.lens_url}/search"
+        self._token = settings.lens_token
 
     def search(self, payload: LensSearchRequest) -> LensAPIFullResponse:
         """
