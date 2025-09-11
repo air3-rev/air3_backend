@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     supabase_anon_key: Optional[str] = None
     supabase_jwt_secret: Optional[str] = None
     supabase_service_role_key: Optional[str] = None
+    supabase_db_pwd: Optional[str] = None
 
     # CORS Settings
     cors_origins: List[str] = ["*"]
@@ -34,7 +35,7 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str = Field(..., alias="OPENAI_API_KEY")
 
-    SUPABASE_SERVICE_ROLE_KEY: str = Field(..., alias="OPENAI_API_KEY")
+    SUPABASE_SERVICE_ROLE_KEY: str = Field(..., alias="SUPABASE_SERVICE_ROLE_KEY")
 
     class Config:
         env_file = ".env"

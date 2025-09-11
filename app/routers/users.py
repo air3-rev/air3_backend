@@ -141,7 +141,7 @@ async def dynamic_lens_search(input: UserLensSearchInput) -> EnrichedSearchRespo
                             author['collective_name'] = None
                         if 'affiliations' not in author:
                             author['affiliations'] = []
-                
+
                 if 'source' in item and item['source']:
                     source = item['source']
                     if 'type' not in source:
@@ -154,7 +154,12 @@ async def dynamic_lens_search(input: UserLensSearchInput) -> EnrichedSearchRespo
                         source['asjc_codes'] = None
                     if 'asjc_subjects' not in source:
                         source['asjc_subjects'] = None
-                
+
+                if 'references' in item and item['references']:
+                    for ref in item['references']:
+                        if 'text' not in ref:
+                            ref['text'] = None
+
                 parsed_articles.append(ScholarResponse(**item))
             except Exception as e:
                 logger.warning(f"Failed to parse article: {e}, skipping item")
