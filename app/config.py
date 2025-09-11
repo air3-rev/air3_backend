@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     supabase_anon_key: Optional[str] = None
     supabase_jwt_secret: Optional[str] = None
     supabase_service_role_key: Optional[str] = None
+    supabase_db_pwd: Optional[str] = None
 
     # CORS Settings
     cors_origins: List[str] = ["*"]
