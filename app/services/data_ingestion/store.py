@@ -8,18 +8,20 @@ from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from supabase import Client, create_client
-
+from app.config import settings
 logger = logging.getLogger(__name__)
 
-load_dotenv()
-
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
 
+SUPABASE_URL =settings.supabase_url
+SUPABASE_SERVICE_ROLE_KEY = settings.supabase_service_role_key
 
-embeddings_model = OpenAIEmbeddings(model=EMBED_MODEL)
 
+
+embeddings_model = OpenAIEmbeddings(
+    model=EMBED_MODEL,
+    api_key=settings.openai_api_key,   # <-- snake_case field recommended
+)
 
 supabase: Client = create_client(
     supabase_url=SUPABASE_URL, supabase_key=SUPABASE_SERVICE_ROLE_KEY

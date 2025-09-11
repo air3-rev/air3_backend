@@ -8,8 +8,8 @@ import uvicorn
 from app.config import settings
 
 if __name__ == "__main__":
-    assert settings.LENS_URL, "Missing LENS_URL from environment"  
-    assert settings.LENS_TOKEN, "Missing LENS_TOKEN from environment"
+    assert settings.lens_url, "Missing LENS_URL from environment"  
+    assert settings.lens_token, "Missing LENS_TOKEN from environment"
     uvicorn.run(
         "app.main:app",
         host=settings.host,
