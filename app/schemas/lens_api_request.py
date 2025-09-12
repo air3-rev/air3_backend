@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Literal, Optional, Union
 
+from app.schemas.lens_api_response import PublicationType
 from pydantic import BaseModel, Field, conint
 
 
@@ -102,5 +103,5 @@ class UserLensSearchInput(BaseModel):
     size: Optional[int] = 10
     offset: Optional[int] = 0
     open_access_only: Optional[bool] = None
-    publication_types: Optional[List[str]] = None
+    publication_types: Optional[List[PublicationType]] = None
     min_citations: Optional[int] = None

@@ -1,17 +1,26 @@
 #!filepath: app/services/lens_client.py
 from __future__ import annotations
+import json
+import sys
 
 import logging
 import requests
 from typing import List
 
 from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, MatchQuery, QueryStringQuery, RangeQuery, SortField, TermQuery, UserLensSearchInput
-from app.schemas.lens_api_response import ScholarResponse
+from app.schemas.lens_api_response import PublicationType, ScholarResponse
 from app.schemas.search_response import LensAPIFullResponse
 from pydantic import ValidationError
 
 from app.config import settings
 
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("app.log"), logging.StreamHandler(sys.stdout)],
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,22 +45,22 @@ class LensAPIClient:
             LensAPIFullResponse: Complete API response with total, max_score, and data.
         """
         try:
-            request_data = payload.dict(by_alias=True)
-            logger.info(f"Sending request to Lens API: {self._url}")
-            logger.info(f"Request headers: Content-Type: application/json, Authorization: [REDACTED]")
-            logger.info(f"Request payload: {request_data}")
-            
+            # request_data = payload.dict(by_alias=True)
+            # logger.info(f"Request payload: {request_data}")
+            # logger.info('REQUEST DATA', request_data)
+            logger.info(f"Request PAyload: {payload}")
+
             response = requests.post(
                 self._url,
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": self._token,
                 },
-                json=request_data,
+                json=payload,
                 timeout=30,
             )
             
-            logger.info(f"Response status: {response.status_code}")
+            # logger.info(f"Response status: {response.status_code}")
             if not response.ok:
                 logger.error(f"Response body: {response.text}")
             
@@ -72,63 +81,8 @@ class LensAPIClient:
             raise
 
 
-def build_example_request() -> LensSearchRequest:
-    """
-    Builds an example LensSearchRequest matching the provided cURL query.
-
-    Returns:
-        LensSearchRequest: The constructed request.
-    """
-    logger.info("Building example request...")
-    
-    query_string = QueryStringQuery(
-        query_string={
-            "query": "\"FRENCH\" OR \"ENGLISH\"",
-            "fields": ["title", "abstract"],
-            "default_operator": "and",
-        }
-    )
-    logger.debug(f"Created query_string: {query_string}")
-
-    range_query = RangeQuery(
-        range={
-            "year_published": {
-                "gte": 1960,
-                "lte": 2024
-            }
-        }
-    )
-    logger.debug(f"Created range_query: {range_query}")
-
-    bool_query = BoolQuery(
-        must=[query_string],
-        filter=[range_query]
-    )
-    logger.debug(f"Created bool_query: {bool_query}")
-
-    # Remove the unused LensQuery creation that was causing confusion
-    # lens_query = LensQuery(__root__={"bool": bool_query})  # This was never used
-
-    sort_fields = [
-        SortField({"relevance": "desc"}),  # ✅ CORRECT
-        SortField({"year_published": "desc"})
-    ]
-    logger.debug(f"Created sort_fields: {sort_fields}")
-
-    request = LensSearchRequest(
-        query={"bool": bool_query},
-        sort=sort_fields,
-        size=10,
-        from_=0,
-        include=["title", "abstract", "lens_id", "year_published"]
-    )
-    logger.info(f"Built LensSearchRequest: {request}")
-    return request
-
-
 def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
-    logger.info("Building dynamic LensSearchRequest from user input")
-    logger.info(f"User input: {user_input.dict()}")
+    logger.info(f"build_lens_request input: {user_input.dict()}")
 
     # Validate and clean the query string
     query_string = user_input.query_string.strip()
@@ -143,8 +97,6 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
             "default_operator": user_input.default_operator
         }
     )
-    logger.info(f"Built QueryStringQuery: {query.dict()}")
-
     must_clauses = [query]
     filter_clauses = []
 
@@ -159,25 +111,26 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
 
         range_query = RangeQuery(range=range_clause)
         filter_clauses.append(range_query)
-        logger.info(f"Added range filter: {range_query.dict()}")
 
     # Add open access filter if requested
     if user_input.open_access_only:
         open_access_query = MatchQuery(match={"is_open_access": True})
         filter_clauses.append(open_access_query)
-        logger.info(f"Added open access filter: {open_access_query.dict()}")
 
     # Add publication types filter if requested
     if user_input.publication_types and len(user_input.publication_types) > 0:
         # Map frontend publication types to Lens API values
         publication_type_mapping = {
-            "JournalArticle": "journal article",
-            "Review": "journal article",  # Reviews are typically journal articles
-            "Book": "book",
-            "Conference": "conference proceedings",
-            "Thesis": "component",  # Closest match for thesis
-            "Other": "component",
-            "Conference": "conference proceedings"
+            PublicationType.JournalArticle: "journal article",
+            PublicationType.Review: "journal article",
+            PublicationType.Book: "book",
+            PublicationType.BookChapter: "book chapter",
+            PublicationType.Conference: "conference proceedings",
+            PublicationType.ConferenceArticle: "conference proceedings article",
+            PublicationType.Dataset: "dataset",
+            PublicationType.ReferenceEntry: "reference entry",
+            PublicationType.Guide: "libguide",
+            PublicationType.Other: "component"
         }
         
         # Get all possible publication types
@@ -185,7 +138,7 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
         selected_types = set(user_input.publication_types)
         
         # Only add publication type filters if not all types are selected
-        if selected_types != all_possible_types and len(selected_types) < len(all_possible_types):
+        if selected_types != all_possible_types and len(selected_types) < len(all_possible_types) and len(selected_types) != 0:
             # Map selected types to Lens API values and remove duplicates
             lens_pub_types = list(set(
                 publication_type_mapping.get(pub_type, pub_type.lower())
@@ -208,18 +161,14 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
                 must_clauses.append({"bool": pub_type_bool_query.dict()})
                 logger.info(f"Added multiple publication type filters: {len(lens_pub_types)} types")
         else:
-            logger.info("All publication types selected - skipping publication type filter")
+            logger.info("All OR no publication types selected - skipping publication type filter")
 
     # Add min citations filter if requested (only if > 0)
     if user_input.min_citations is not None and user_input.min_citations > 0:
         citations_query = RangeQuery(range={"cited_by_count": {"gte": user_input.min_citations}})
         filter_clauses.append(citations_query)
-        logger.info(f"Added min citations filter: {citations_query.dict()}")
-    else:
-        logger.info("Min citations is 0 or not set - skipping citations filter")
 
     bool_query = BoolQuery(must=must_clauses, filter=filter_clauses if filter_clauses else None)
-    logger.info(f"Built BoolQuery: {bool_query.dict()}")
 
     # Handle sort fields more carefully - use simple format that works
     sort = []
@@ -241,7 +190,6 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
     if not sort:
         sort.append(SortField({"relevance": "desc"}))
     
-    logger.info(f"Built sort fields: {[s.root if hasattr(s, 'root') else s for s in sort]}")
 
     # Ensure size and offset are reasonable
     size = min(user_input.size or 10, 100)  # Cap at 100
@@ -254,5 +202,113 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
         size=size,
         from_=offset
     )
-    logger.info(f"Final LensSearchRequest: {request.dict(by_alias=True)}")
     return request
+
+
+
+
+publication_type_mapping = {
+            PublicationType.JournalArticle: "journal article",
+            PublicationType.Review: "journal article",
+            PublicationType.Book: "book",
+            PublicationType.BookChapter: "book chapter",
+            PublicationType.Conference: "conference proceedings",
+            PublicationType.ConferenceArticle: "conference proceedings article",
+            PublicationType.Dataset: "dataset",
+            PublicationType.ReferenceEntry: "reference entry",
+            PublicationType.Guide: "libguide",
+            PublicationType.Other: "component"
+        }
+
+def build_lens_request_v2(user_input: UserLensSearchInput):
+    size = min(user_input.size or 10, 100)  # Cap at 100
+    offset = max(user_input.offset or 0, 0)  # Ensure non-negative
+    
+    sort = []
+    if user_input.sort_by:
+        for sort_item in user_input.sort_by:
+            try:
+                # Ensure the sort item is in the correct format
+                if isinstance(sort_item, dict) and len(sort_item) == 1:
+                    sort.append(sort_item)  # Use the dictionary directly
+                else:
+                    logger.warning(f"Invalid sort format: {sort_item}, using default")
+                    sort.append({"relevance": "desc"})  # Plain dictionary
+            except Exception as e:
+                logger.warning(f"Failed to create sort field from {sort_item}: {e}")
+                sort.append({"relevance": "desc"})  # Plain dictionary
+        filter_clauses = []
+
+    if user_input.year_from or user_input.year_to:
+
+        range_clause = {
+            "year_published": {}
+        }
+
+        if user_input.year_from:
+            range_clause["year_published"]["gte"] = user_input.year_from
+        if user_input.year_to:
+            range_clause["year_published"]["lte"] = user_input.year_to
+
+        range_filter = {
+            "range": range_clause
+        }
+        filter_clauses.append(range_filter)
+
+    
+
+    query_string = user_input.query_string.strip()
+    if not query_string:
+        query_string = '"research"'  # Fallback query
+        logger.warning("Empty query string provided, using fallback")
+
+
+    query_clause = {
+        "query_string": {
+            "query": query_string,
+            "fields": user_input.fields,
+            "default_operator": user_input.default_operator
+        }
+    }
+    must_clauses = [query_clause]
+    # Add open access filter if requested
+    if user_input.open_access_only:
+        open_access_query = MatchQuery(match={"is_open_access": True})
+        must_clauses.append({"match": { "is_open_access": user_input.open_access_only}})
+        
+        
+        
+    should_clauses = []
+    if user_input.publication_types:
+        for pub_type in user_input.publication_types:
+            search_term = publication_type_mapping.get(pub_type, pub_type.value.lower())
+            should_clauses.append({
+                "match": {
+                    "publication_type": search_term
+                }
+            })
+    
+        pub_type_bool = {
+            "bool": {
+                "should": should_clauses
+            }
+        }
+        must_clauses.append(pub_type_bool)
+    bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
+
+    query_dict = {
+        "bool": {
+            "must": must_clauses,
+            "filter": filter_clauses
+        }
+    }
+
+    payload = {
+        "query" : query_dict,
+        "sort": sort,
+        "include": user_input.include_fields,
+        "size": size,
+        "from_":offset
+    }
+
+    return payload
