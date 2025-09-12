@@ -3,7 +3,7 @@ from typing import List, Optional
 from app.schemas.lens_api_request import UserLensSearchInput
 from app.schemas.search_response import EnrichedSearchResponse, PaginationMetadata
 from app.schemas.lens_api_response import ScholarResponse
-from app.services.lens_client import LensAPIClient, build_lens_request
+from app.services.lens_client import LensAPIClient, build_lens_request, build_lens_request_v2
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
@@ -99,7 +99,7 @@ async def dynamic_lens_search(input: UserLensSearchInput) -> EnrichedSearchRespo
     """
     try:
         client = LensAPIClient()
-        request_payload = build_lens_request(input)
+        request_payload = build_lens_request_v2(input)
         api_response = client.search(request_payload)
         
         # Parse the raw data into ScholarResponse objects with error handling
