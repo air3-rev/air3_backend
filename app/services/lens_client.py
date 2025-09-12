@@ -207,26 +207,22 @@ def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
 
 
 
-def build_lens_request_v2(user_input: UserLensSearchInput):
+publication_type_mapping = {
+            PublicationType.JournalArticle: "journal article",
+            PublicationType.Review: "journal article",
+            PublicationType.Book: "book",
+            PublicationType.BookChapter: "book chapter",
+            PublicationType.Conference: "conference proceedings",
+            PublicationType.ConferenceArticle: "conference proceedings article",
+            PublicationType.Dataset: "dataset",
+            PublicationType.ReferenceEntry: "reference entry",
+            PublicationType.Guide: "libguide",
+            PublicationType.Other: "component"
+        }
 
+def build_lens_request_v2(user_input: UserLensSearchInput):
     size = min(user_input.size or 10, 100)  # Cap at 100
     offset = max(user_input.offset or 0, 0)  # Ensure non-negative
-
-
-    # sort = []
-    # if user_input.sort_by:
-    #     for sort_item in user_input.sort_by:
-    #         try:
-    #             # Ensure the sort item is in the correct format
-    #             if isinstance(sort_item, dict) and len(sort_item) == 1:
-    #                 sort_field = SortField(sort_item)
-    #                 sort.append(sort_field)
-    #             else:
-    #                 logger.warning(f"Invalid sort format: {sort_item}, using default")
-    #                 sort.append(SortField({"relevance": "desc"}))
-    #         except Exception as e:
-    #             logger.warning(f"Failed to create sort field from {sort_item}: {e}")
-    #             sort.append(SortField({"relevance": "desc"}))
     
     sort = []
     if user_input.sort_by:
@@ -244,45 +240,29 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         filter_clauses = []
 
     if user_input.year_from or user_input.year_to:
-        # range_clause = {
-        #     "year_published": {}
-        # }
+
         range_clause = {
             "year_published": {}
         }
-        # if user_input.year_from:
-        #     range_clause["year_published"]["gte"] = user_input.year_from
-        # if user_input.year_to:
-        #     range_clause["year_published"]["lte"] = user_input.year_to
+
         if user_input.year_from:
             range_clause["year_published"]["gte"] = user_input.year_from
         if user_input.year_to:
             range_clause["year_published"]["lte"] = user_input.year_to
 
-        # range_query = RangeQuery(range=range_clause)
-        # filter_clauses.append(range_query)
         range_filter = {
             "range": range_clause
         }
         filter_clauses.append(range_filter)
 
-    # Add open access filter if requested
-    if user_input.open_access_only:
-        open_access_query = MatchQuery(match={"is_open_access": True})
-        filter_clauses.append(open_access_query)
+    
 
     query_string = user_input.query_string.strip()
     if not query_string:
         query_string = '"research"'  # Fallback query
         logger.warning("Empty query string provided, using fallback")
 
-    # query_clause =  QueryStringQuery(
-    #     query_string={
-    #         "query": query_string,
-    #         "fields": user_input.fields,
-    #         "default_operator": user_input.default_operator
-    #     }
-    # )
+
     query_clause = {
         "query_string": {
             "query": query_string,
@@ -290,71 +270,38 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
             "default_operator": user_input.default_operator
         }
     }
-    # should_type_query = [
-    #                         {
-    #                             "match": {
-    #                                 "publication_type": "journal article"
-    #                             }
-    #                         },
-    #                         {
-    #                             "match": {
-    #                                 "publication_type": "book"
-    #                             }
-    #                         },
-    #                         {
-    #                             "match": {
-    #                                 "publication_type": "dataset"
-    #                             }
-    #                         }
-    #                     ]
-    
-    pub_type_bool = {
-        "bool": {
-            "should": [
-                {
-                    "match": {
-                        "publication_type": "journal article"
-                    }
-                },
-                {
-                    "match": {
-                        "publication_type": "book"
-                    }
-                },
-                {
-                    "match": {
-                        "publication_type": "dataset"
-                    }
+    must_clauses = [query_clause]
+    # Add open access filter if requested
+    if user_input.open_access_only:
+        open_access_query = MatchQuery(match={"is_open_access": True})
+        must_clauses.append({"match": { "is_open_access": user_input.open_access_only}})
+        
+        
+        
+    should_clauses = []
+    if user_input.publication_types:
+        for pub_type in user_input.publication_types:
+            search_term = publication_type_mapping.get(pub_type, pub_type.value.lower())
+            should_clauses.append({
+                "match": {
+                    "publication_type": search_term
                 }
-            ]
+            })
+    
+        pub_type_bool = {
+            "bool": {
+                "should": should_clauses
+            }
+        }
+        must_clauses.append(pub_type_bool)
+    bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
+
+    query_dict = {
+        "bool": {
+            "must": must_clauses,
+            "filter": filter_clauses
         }
     }
-    # pub_type_bool = BoolQuery(should = pub_type_bool)
-    must_clauses = [query_clause, pub_type_bool]
-    bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
-    # logger.info(f"build_lens_request input: {user_input.dict()}")
-    # logger.setLevel(logging.INFO)
-    # logger.info("Request payload:\n%s", json.dumps(query_clause, indent=4))
-
-    # query_dict = {
-    #     "bool": {
-    #         "must": [
-    #             query_clause.to_dict(),  # Convert to dict
-    #             pub_type_bool.to_dict()  # Convert to dict
-    #         ],
-    #         "filter": [f.to_dict() for f in filter_clauses] if filter_clauses else None
-    #         }
-    # }
-    query_dict = {
-    "bool": {
-        "must": [query_clause, pub_type_bool],
-        "filter": filter_clauses
-        # "filter": [f.to_dict() for f in filter_clauses] if filter_clauses else None
-    }
-}
-    logger.info(f"bool_query_dict: {query_dict}")
-    logger.info(f"filter_clauses: {filter_clauses}")
-    logger.info(f"query_dict: {query_dict}")
 
     payload = {
         "query" : query_dict,
@@ -363,16 +310,5 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         "size": size,
         "from_":offset
     }
-    
-
-    request = LensSearchRequest(
-        query={"bool": query_dict},
-        sort=sort,
-        include=user_input.include_fields,
-        size=size,
-        from_=offset
-    )
-    
-    # logger.info(f"Request: {request}")
 
     return payload

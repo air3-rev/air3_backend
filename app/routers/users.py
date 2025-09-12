@@ -99,6 +99,73 @@ async def dynamic_lens_search(input: UserLensSearchInput) -> EnrichedSearchRespo
     """
     try:
         client = LensAPIClient()
+        request_payload = build_lens_request(input)
+        api_response = client.search(request_payload)
+        
+        # Parse the raw data into ScholarResponse objects with error handling
+        parsed_articles = []
+        for item in api_response.data:
+            try:
+                # Fill in missing required fields with defaults
+                if 'authors' in item and item['authors']:
+                    for author in item['authors']:
+                        if 'collective_name' not in author:
+                            author['collective_name'] = None
+                        if 'affiliations' not in author:
+                            author['affiliations'] = []
+
+                if 'source' in item and item['source']:
+                    source = item['source']
+                    if 'type' not in source:
+                        source['type'] = None
+                    if 'issn' not in source:
+                        source['issn'] = []
+                    if 'country' not in source:
+                        source['country'] = None
+                    if 'asjc_codes' not in source:
+                        source['asjc_codes'] = None
+                    if 'asjc_subjects' not in source:
+                        source['asjc_subjects'] = None
+
+                if 'references' in item and item['references']:
+                    for ref in item['references']:
+                        if 'text' not in ref:
+                            ref['text'] = None
+
+                parsed_articles.append(ScholarResponse(**item))
+            except Exception as e:
+                logger.warning(f"Failed to parse article: {e}, skipping item")
+                continue
+        
+        # Create pagination metadata
+        pagination = PaginationMetadata.create(
+            total=api_response.total,
+            offset=input.offset or 0,
+            size=input.size or 10
+        )
+        
+        # Build the enriched response
+        return EnrichedSearchResponse(
+            data=parsed_articles,
+            pagination=pagination,
+            max_score=api_response.max_score
+        )
+    except Exception as e:
+        logger.exception("Dynamic lens search failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+    
+    
+
+    
+@router.post("/advanced_search", response_model=EnrichedSearchResponse)
+async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSearchResponse:
+    """
+    Dynamic search route that returns enriched results with pagination metadata.
+    """
+    try:
+        client = LensAPIClient()
         request_payload = build_lens_request_v2(input)
         api_response = client.search(request_payload)
         
