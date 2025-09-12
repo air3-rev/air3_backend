@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import Base, engine
-from app.routers import data_ingestion, items, users
+from app.routers import data_ingestion, items, users, pdf
 
 # Configure logging
 logging.basicConfig(
@@ -105,6 +105,8 @@ async def root():
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(items.router, prefix="/api/v1/items", tags=["Items"])
 app.include_router(data_ingestion.router, prefix="/api/v1/data", tags=["Data"])
+app.include_router(pdf.router, prefix="/api/v1/pdf", tags=["Pdf"])
+
 
 
 if __name__ == "__main__":
