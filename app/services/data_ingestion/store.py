@@ -45,3 +45,4 @@ def store_in_vector_db(docs: List[Document]):
     """Store embeddings and metadata in the vector database."""
 
     vectorstore.add_documents(docs)
+    
