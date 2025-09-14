@@ -4,12 +4,12 @@
 
 # DATA EXTRACTION
 ## Chunking Configuration
-CHUNK_SIZE = 200
-CHUNK_OVERLAP = 25
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 50
 
 ## Embedding Configuration  
 EMBED_MODEL = "text-embedding-3-small"
 
 ## Database Configuration
-TABLE_NAME = "z_documents"  # LangChain non-default (documents is default)
+TABLE_NAME = "paper_chunks"  # LangChain non-default (documents is default)
 QUERY_RPC = "match_documents"  # LangChain default RPC name

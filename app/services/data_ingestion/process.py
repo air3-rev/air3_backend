@@ -54,11 +54,11 @@ def chunk_document(pdf_doc: PdfDocument) -> List[Document]:
             )
         )
 
-    logger.info(
-        "Chunked document %s into %d chunks",
-        getattr(pdf_doc, "doc_id", "unknown"),
-        len(docs),
-    )
+    # logger.info(
+    #     "Chunked document %s into %d chunks",
+    #     getattr(pdf_doc, "doc_id", "unknown"),
+    #     len(docs),
+    # )
     return docs
 
 

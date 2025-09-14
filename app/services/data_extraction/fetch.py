@@ -51,7 +51,7 @@ def fetch_relevant_chunks(
     params = {
         "query_embedding": qvec,
         "match_count": k,
-        "filter": {"doc_id": filter_doc_id} if filter_doc_id else None,
+        "filter": {"paper_id": filter_doc_id} if filter_doc_id else None,
     }
     try:
         res = _get_supabase().rpc(QUERY_RPC, params).execute()
@@ -76,3 +76,54 @@ def fetch_relevant_chunks(
 
     logger.info(f"OUT {out}")
     return out
+
+
+
+# --- Fetch chunks from Supabase ---
+def fetch_paper_chunks(
+    label: str,
+    k: int = 5,
+    paper_id: Optional[str] = None
+) -> List[Chunk]:
+    """
+    Given a label and paper_id, fetch top-k most relevant chunks from Supabase.
+    Returns a list of dicts with keys: id, text, metadata, similarity.
+    """
+    if not label.strip():
+        return []
+
+    # 1️⃣ Embed the label
+    query_embedding = _embeddings.embed_query(label)
+
+    # 2️⃣ Call Supabase RPC for similarity search
+    params = {
+        "query_embedding": query_embedding,
+        "match_count": k,
+        "filter": {"paper_id": paper_id} if paper_id else None,
+        # "filter": {"metadata->>'paper_id'": paper_id} if paper_id else None,
+
+    }
+
+    try:
+        res = _get_supabase().rpc("match_chunks", params).execute()
+        rows = res.data or []
+    except Exception as e:
+        logger.exception("Supabase RPC failed for label '%s'", label)
+        raise
+
+    logger.debug("Supabase RPC response: %s", rows)
+
+    # 3️⃣ Normalize output into chunk format
+    chunks: List[Dict[str, Any]] = []
+    for row in rows:
+        chunks.append(
+            {
+                "id": row.get("id"),
+                "text": row.get("content"),
+                "metadata": row.get("metadata") or {},
+                "similarity": row.get("similarity"),
+            }
+        )
+
+    logger.debug("Normalized chunks: %s", chunks)
+    return chunks

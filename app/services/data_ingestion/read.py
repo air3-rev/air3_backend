@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from typing import List
+from typing import List, Union
 
 import fitz  # PyMuPDF
 from fastapi import HTTPException, UploadFile
@@ -48,6 +48,45 @@ def read_pdf_file(file: UploadFile) -> PdfFile:
             status_code=400, detail=f"Invalid or unreadable PDF: {e}"
         ) from e
 
+
+
+def read_paper_pdf_file(file: Union[UploadFile, bytes], filename: str | None = None) -> PdfFile:
+    try:
+        if isinstance(file, UploadFile):
+            raw = file.file.read()
+            name = file.filename
+        elif isinstance(file, bytes):
+            raw = file
+            if not filename:
+                raise ValueError("Filename must be provided for raw bytes")
+            name = filename
+        else:
+            raise ValueError("Unsupported file type for PDF input")
+
+        if not raw:
+            raise ValueError("Empty PDF content")
+
+        with fitz.open(stream=raw, filetype="pdf") as doc:
+            texts: List[str] = []
+            for page in doc:
+                blocks = page.get_text("blocks")
+                page_text_parts = [b[4] for b in blocks if isinstance(b[4], str) and b[4].strip()]
+                page_text = "\n".join(page_text_parts).strip()
+                if not page_text:
+                    page_text = page.get_text("text").strip()
+                texts.append(page_text)
+
+            combined = "\n\n".join([t for t in texts if t])
+            return PdfFile(
+                file_name=name,
+                raw_content=raw,
+                content=combined,
+                length=len(doc),
+            )
+
+    except Exception as e:
+        logger.exception("Failed to parse PDF")
+        raise HTTPException(status_code=400, detail=f"Invalid or unreadable PDF: {e}") from e
 
 def sha256_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
