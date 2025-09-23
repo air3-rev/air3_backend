@@ -308,7 +308,7 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         "sort": sort,
         "include": user_input.include_fields,
         "size": size,
-        "from_":offset
+        "from":offset
     }
 
     return payload
