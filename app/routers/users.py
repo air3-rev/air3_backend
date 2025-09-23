@@ -65,30 +65,6 @@ async def read_current_user(current_user: User = Depends(get_current_user_from_s
 #     return current_user
 
 
-# @router.post("/sync", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-# async def sync_user_from_supabase(
-#     user_data: UserCreate,
-#     db: Session = Depends(get_db)
-# ):
-#     """Sync user from Supabase (called by frontend after Supabase auth)"""
-#     # Check if user already exists
-#     existing_user = db.query(User).filter(User.supabase_id == user_data.supabase_id).first()
-#     if existing_user:
-#         return existing_user
-    
-#     # Create new user
-#     db_user = User(
-#         supabase_id=user_data.supabase_id,
-#         email=user_data.email,
-#         full_name=user_data.full_name,
-#         avatar_url=user_data.avatar_url
-#     )
-    
-#     db.add(db_user)
-#     db.commit()
-#     db.refresh(db_user)
-    
-#     return db_user
 from typing import Any
    
     
