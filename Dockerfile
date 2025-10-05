@@ -11,7 +11,7 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN uv pip install -e .
+RUN uv pip install --system -e .
 
 # Expose port 8000
 EXPOSE 8000
