@@ -5,7 +5,7 @@ import sys
 
 import logging
 import requests
-from typing import List
+from typing import List, Union, Any
 
 from app.schemas.lens_api_request import BoolQuery, LensQuery, LensSearchRequest, MatchQuery, QueryStringQuery, RangeQuery, SortField, TermQuery, UserLensSearchInput
 from app.schemas.lens_api_response import PublicationType, ScholarResponse
@@ -34,7 +34,7 @@ class LensAPIClient:
         self._url = f"{settings.lens_url}/search"
         self._token = settings.lens_token
 
-    def search(self, payload: LensSearchRequest) -> LensAPIFullResponse:
+    def search(self, payload: Union[LensSearchRequest, dict]) -> LensAPIFullResponse:
         """
         Sends a search request to the Lens.org API.
 
@@ -45,9 +45,6 @@ class LensAPIClient:
             LensAPIFullResponse: Complete API response with total, max_score, and data.
         """
         try:
-            # request_data = payload.dict(by_alias=True)
-            # logger.info(f"Request payload: {request_data}")
-            # logger.info('REQUEST DATA', request_data)
             logger.info(f"Request PAyload: {payload}")
 
             response = requests.post(
@@ -287,13 +284,32 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
                     "publication_type": search_term
                 }
             })
-    
+
         pub_type_bool = {
             "bool": {
                 "should": should_clauses
             }
         }
         must_clauses.append(pub_type_bool)
+
+    # Add ISSN filter if requested
+    if user_input.accepted_issns:
+        issn_should_clauses = []
+        for issn in user_input.accepted_issns:
+            issn_should_clauses.append({
+                "match": {
+                    "source.issn": issn
+                }
+            })
+
+        if issn_should_clauses:
+            issn_bool = {
+                "bool": {
+                    "should": issn_should_clauses
+                }
+            }
+            must_clauses.append(issn_bool)
+
     bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
 
     query_dict = {
