@@ -48,6 +48,55 @@ def get_issns(fields: List[str], quartiles: List[str]) -> List[str]:
         db.close()
 
 
+def get_related_categories(categories: List[str], limit: int = 10) -> List[dict]:
+    """
+    Get top related categories based on category pairs data.
+
+    Args:
+        categories: List of input categories to find relationships for
+        limit: Maximum number of related categories to return
+
+    Returns:
+        List of dicts with 'category' and 'total_frequency' keys, sorted by frequency desc
+    """
+    db: Session = next(get_journals_db())
+
+    try:
+        from collections import defaultdict
+
+        # Convert input categories to set for faster lookup
+        input_categories = set(categories)
+
+        # Query all pairs where either category_1 or category_2 matches input categories
+        pairs = db.query(Category_Pairs).filter(
+            (Category_Pairs.category_1.in_(categories)) |
+            (Category_Pairs.category_2.in_(categories))
+        ).all()
+
+        # Aggregate frequencies for related categories
+        related_freq = defaultdict(int)
+
+        for pair in pairs:
+            # Determine which category is the related one (not in input)
+            if pair.category_1 in input_categories and pair.category_2 not in input_categories:
+                related_freq[pair.category_2] += pair.frequency
+            elif pair.category_2 in input_categories and pair.category_1 not in input_categories:
+                related_freq[pair.category_1] += pair.frequency
+            # If both are in input categories, skip (no self-relationships)
+
+        # Sort by frequency and take top limit
+        sorted_related = sorted(
+            [{"category": cat, "total_frequency": freq} for cat, freq in related_freq.items()],
+            key=lambda x: x["total_frequency"],
+            reverse=True
+        )[:limit]
+
+        return sorted_related
+
+    finally:
+        db.close()
+
+
 def initialize_journals_db():
     """Initialize journals database by loading data from JSON file if not already loaded."""
     logger.info("Initializing journals database...")
