@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 import requests
-from sqlalchemy import create_engine, Column, Integer, String, Index
+from sqlalchemy import create_engine, Column, Integer, String, Index, UniqueConstraint
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Define Journal model locally
@@ -20,11 +20,12 @@ class Journal(JournalBase):
     issn = Column(String(255), nullable=False)
     rank = Column(Integer, nullable=False)
     quartile = Column(String(10), nullable=False, index=True)
-    title = Column(String(500), nullable=False, unique=True)
+    title = Column(String(500), nullable=False)
 
     # Composite index for efficient querying by field and quartile
     __table_args__ = (
         Index('idx_field_quartile', 'field', 'quartile'),
+        UniqueConstraint('title', 'field', name='unique_title_field')
     )
 
 # Configure logging
