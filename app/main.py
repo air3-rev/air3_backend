@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import Base, engine, JournalBase, journals_engine
 from app.routers import data_ingestion, items, journals, users, pdf
+from app.services.journals import initialize_journals_db
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +32,13 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     JournalBase.metadata.create_all(bind=journals_engine)
     logger.info("Database tables created")
+
+    # Initialize journals database if empty
+    try:
+        initialize_journals_db()
+    except Exception as e:
+        logger.error(f"Failed to initialize journals database: {e}")
+        # Don't fail startup, but log the error
 
     yield
 
