@@ -5,7 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.journals import get_issns, get_related_categories
+from app.services.journals import get_issns, get_related_categories, load_journals_db, empty_journals_db
 
 router = APIRouter()
 
@@ -46,3 +46,29 @@ async def get_related_categories_route(
         return {"input_categories": categories, "related_categories": related}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving related categories: {str(e)}")
+
+
+@router.post("/load")
+async def load_journals_database():
+    """
+    Load journals and category pairs data into the database.
+    This will load data from remote URLs and insert into the database.
+    Existing data will not be duplicated.
+    """
+    try:
+        load_journals_db()
+        return {"message": "Journals database loaded successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading journals database: {str(e)}")
+
+
+@router.post("/empty")
+async def empty_journals_database():
+    """
+    Empty the journals database by deleting all journals and category pairs data.
+    """
+    try:
+        empty_journals_db()
+        return {"message": "Journals database emptied successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error emptying journals database: {str(e)}")
