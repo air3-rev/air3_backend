@@ -13,6 +13,7 @@ from app.schemas.search_response import LensAPIFullResponse
 from pydantic import ValidationError
 
 from app.config import settings
+from app.services.journals import get_issns
 
 
 # Configure logging
@@ -45,8 +46,6 @@ class LensAPIClient:
             LensAPIFullResponse: Complete API response with total, max_score, and data.
         """
         try:
-            logger.info(f"Request PAyload: {payload}")
-
             response = requests.post(
                 self._url,
                 headers={
@@ -79,8 +78,6 @@ class LensAPIClient:
 
 
 def build_lens_request(user_input: UserLensSearchInput) -> LensSearchRequest:
-    logger.info(f"build_lens_request input: {user_input.dict()}")
-
     # Validate and clean the query string
     query_string = user_input.query_string.strip()
     if not query_string:
@@ -220,7 +217,7 @@ publication_type_mapping = {
 def build_lens_request_v2(user_input: UserLensSearchInput):
     size = min(user_input.size or 10, 100)  # Cap at 100
     offset = max(user_input.offset or 0, 0)  # Ensure non-negative
-    
+
     sort = []
     if user_input.sort_by:
         for sort_item in user_input.sort_by:
@@ -234,7 +231,20 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
             except Exception as e:
                 logger.warning(f"Failed to create sort field from {sort_item}: {e}")
                 sort.append({"relevance": "desc"})  # Plain dictionary
-        filter_clauses = []
+
+    # Fetch ISSNs based on journal_tier and fields_of_study if provided
+    accepted_issns = user_input.accepted_issns or []
+    if user_input.journal_tier:
+        # Uppercase quartiles to match database values (Q1, Q2, etc.)
+        quartiles = [tier.upper() for tier in user_input.journal_tier]
+        fields = user_input.fields_of_study or []
+
+        issns = get_issns(fields=fields, quartiles=quartiles)
+        accepted_issns.extend(issns)
+        # Remove duplicates
+        accepted_issns = list(set(accepted_issns))
+
+    filter_clauses = []
 
     if user_input.year_from or user_input.year_to:
 
@@ -291,24 +301,14 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
             }
         }
         must_clauses.append(pub_type_bool)
-
     # Add ISSN filter if requested
-    if user_input.accepted_issns:
-        issn_should_clauses = []
-        for issn in user_input.accepted_issns:
-            issn_should_clauses.append({
-                "match": {
-                    "source.issn": issn
-                }
-            })
-
-        if issn_should_clauses:
-            issn_bool = {
-                "bool": {
-                    "should": issn_should_clauses
-                }
+    if accepted_issns:
+        issn_terms = {
+            "terms": {
+                "source.issn": accepted_issns
             }
-            must_clauses.append(issn_bool)
+        }
+        must_clauses.append(issn_terms)
 
     bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
 
