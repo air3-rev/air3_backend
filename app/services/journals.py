@@ -63,8 +63,8 @@ def initialize_journals_db():
             logger.info(f"Journals database already initialized with {count} entries")
             return
 
-        # Query existing titles to avoid duplicates (should be empty, but for consistency)
-        existing_titles = {row[0] for row in session.query(Journal.title).all()}
+        # Query existing (title, field) pairs to avoid duplicates
+        existing_title_fields = {(row.title, row.field) for row in session.query(Journal.title, Journal.field).all()}
 
         # Load JSON data from remote URL
         response = requests.get(DATA_URL)
@@ -73,6 +73,7 @@ def initialize_journals_db():
 
         journals_to_insert = []
         skipped_duplicates = 0
+        title_fields_to_insert = set()
 
         for field, journals in data.items():
             logger.info(f"Processing field: {field} ({len(journals)} journals)")
@@ -87,10 +88,12 @@ def initialize_journals_db():
                 if not quartile:
                     continue
 
-                # Skip if title already exists
-                if title in existing_titles:
+                # Skip if (title, field) already exists in DB or already being inserted in this batch
+                if (title, field) in existing_title_fields or (title, field) in title_fields_to_insert:
                     skipped_duplicates += 1
                     continue
+
+                title_fields_to_insert.add((title, field))
 
                 # Create entry for each ISSN
                 for issn in issns:

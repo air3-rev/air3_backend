@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Index
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Index, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
@@ -84,7 +84,13 @@ class Journal(JournalBase):
     issn = Column(String(255), nullable=False)
     rank = Column(Integer, nullable=False)
     quartile = Column(String(10), nullable=False, index=True)
-    title = Column(String(500), nullable=False, unique=True)
+    title = Column(String(500), nullable=False)
+
+    # Composite index for efficient querying by field and quartile
+    __table_args__ = (
+        Index('idx_field_quartile', 'field', 'quartile'),
+        UniqueConstraint('title', 'field', name='unique_title_field')
+    )
 
     # Composite index for efficient querying by field and quartile
     __table_args__ = (
