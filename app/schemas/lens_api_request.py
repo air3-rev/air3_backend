@@ -105,3 +105,6 @@ class UserLensSearchInput(BaseModel):
     open_access_only: Optional[bool] = None
     publication_types: Optional[List[PublicationType]] = None
     min_citations: Optional[int] = None
+    accepted_issns: Optional[List[str]] = None
+    journal_tier: Optional[List[str]] = None
+    fields_of_study: Optional[List[str]] = None

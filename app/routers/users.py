@@ -142,7 +142,40 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
     """
     try:
         client = LensAPIClient()
+        
+        logger.info(f"Input PAyload: {input}")
+        if hasattr(input, 'accepted_issns') and input.accepted_issns:
+            original_count = len(input.accepted_issns)
+            unique_issns = list(set(input.accepted_issns))
+            unique_count = len(unique_issns)
+            
+            logger.info(f"ISSN Analysis:")
+            logger.info(f"  - Original ISSN count: {original_count}")
+            logger.info(f"  - Unique ISSN count: {unique_count}")
+            logger.info(f"  - Duplicates found: {original_count - unique_count}")
+            
+            if original_count != unique_count:
+                logger.warning(f"Found {original_count - unique_count} duplicate ISSNs, removing them")
+                # Find which ones are duplicated
+                from collections import Counter
+                issn_counts = Counter(input.accepted_issns)
+                duplicates = {issn: count for issn, count in issn_counts.items() if count > 1}
+                logger.warning(f"Duplicate ISSNs: {duplicates}")
+                
+                # Update input with unique ISSNs
+                input.accepted_issns = unique_issns
+            
+            logger.info(f"  - Final ISSN count being sent to Lens API: {len(input.accepted_issns)}")
+            
+            # Log first few ISSNs for debugging
+            if len(input.accepted_issns) > 0:
+                logger.info(f"  - First 5 ISSNs: {input.accepted_issns[:5]}")
+            
+            # Warning if too many ISSNs
+            if len(input.accepted_issns) > 100:
+                logger.warning(f"Large number of ISSNs ({len(input.accepted_issns)}). This might cause API issues.")
         request_payload = build_lens_request_v2(input)
+
         api_response = client.search(request_payload)
         
         # Parse the raw data into ScholarResponse objects with error handling
