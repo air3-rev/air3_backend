@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # OPEN AI SETTINGS
     openai_api_key: Optional[str] = None
     class Config:
-        env_file = ".env"
+        env_file = [".env.local", ".env"]
         case_sensitive = False
 
 
