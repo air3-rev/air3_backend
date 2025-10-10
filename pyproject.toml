@@ -26,6 +26,7 @@ dependencies = [
   "langchain-community>=0.3.27",
   "supabase>=2.16.0",
   "pypdf2>=3.0.1",
+  "google-adk>=0.0.1",
 ]
 
 [tool.uv]
