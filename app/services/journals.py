@@ -8,12 +8,13 @@ from typing import List
 import requests
 from sqlalchemy.orm import Session
 
-from app.database import Journal, get_journals_db, JournalsSessionLocal, JournalBase, journals_engine
+from app.database import Journal, Category_Pairs, get_journals_db, JournalsSessionLocal, JournalBase, journals_engine
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 DATA_URL = "https://drive.google.com/uc?id=1ztxGWzF6V03V5vPAucPEUCu3IIEm0ucP"
+CATEGORY_PAIRS_URL = "https://drive.google.com/uc?id=1SfpTAFxbzbTtrBvDkyg2ZubUOPG88Knp"
 
 
 def get_issns(fields: List[str], quartiles: List[str]) -> List[str]:
@@ -57,62 +58,115 @@ def initialize_journals_db():
     session = JournalsSessionLocal()
 
     try:
-        # Check if already loaded
-        count = session.query(Journal).count()
-        if count > 0:
-            logger.info(f"Journals database already initialized with {count} entries")
-            return
+        # Check if journals already loaded
+        journals_count = session.query(Journal).count()
+        journals_loaded = journals_count > 0
+        if journals_loaded:
+            logger.info(f"Journals database already initialized with {journals_count} entries")
+        else:
+            logger.info("Journals database is empty, will load journals data")
 
-        # Query existing (title, field) pairs to avoid duplicates
-        existing_title_fields = {(row.title, row.field) for row in session.query(Journal.title, Journal.field).all()}
+        if not journals_loaded:
+            # Query existing (title, field) pairs to avoid duplicates
+            existing_title_fields = {(row.title, row.field) for row in session.query(Journal.title, Journal.field).all()}
 
-        # Load JSON data from remote URL
-        response = requests.get(DATA_URL)
-        response.raise_for_status()
-        data = response.json()
+            # Load JSON data from remote URL
+            response = requests.get(DATA_URL)
+            response.raise_for_status()
+            data = response.json()
 
-        journals_to_insert = []
-        skipped_duplicates = 0
-        title_fields_to_insert = set()
+            journals_to_insert = []
+            skipped_duplicates = 0
+            title_fields_to_insert = set()
 
-        for field, journals in data.items():
-            logger.info(f"Processing field: {field} ({len(journals)} journals)")
+            for field, journals in data.items():
+                logger.info(f"Processing field: {field} ({len(journals)} journals)")
 
-            for journal in journals:
-                issns = journal['issn'].split(', ')
-                rank = journal['rank']
-                quartile = journal.get('quartile')
-                title = journal['title']
+                for journal in journals:
+                    issns = journal['issn'].split(', ')
+                    rank = journal['rank']
+                    quartile = journal.get('quartile')
+                    title = journal['title']
 
-                # Skip journals without quartile
-                if not quartile:
+                    # Skip journals without quartile
+                    if not quartile:
+                        continue
+
+                    # Skip if (title, field) already exists in DB or already being inserted in this batch
+                    if (title, field) in existing_title_fields or (title, field) in title_fields_to_insert:
+                        skipped_duplicates += 1
+                        continue
+
+                    title_fields_to_insert.add((title, field))
+
+                    # Create entry for each ISSN
+                    for issn in issns:
+                        issn = issn.strip()
+                        if issn:  # Skip empty ISSNs
+                            journals_to_insert.append(Journal(
+                                field=field,
+                                issn=issn,
+                                rank=rank,
+                                quartile=quartile,
+                                title=title
+                            ))
+
+            logger.info(f"Skipped {skipped_duplicates} duplicate journal titles")
+
+            # Bulk insert journals
+            logger.info(f"Inserting {len(journals_to_insert)} journal entries...")
+            session.add_all(journals_to_insert)
+            session.commit()
+            logger.info("Successfully loaded journals data")
+        else:
+            logger.info("Skipping journals loading as they are already loaded")
+
+        # Load category pairs data
+        logger.info("Loading category pairs data...")
+
+        # Check if category pairs already loaded
+        pairs_count = session.query(Category_Pairs).count()
+        if pairs_count > 0:
+            logger.info(f"Category pairs already loaded with {pairs_count} entries")
+        else:
+            # Query existing (category_1, category_2) pairs to avoid duplicates
+            existing_pairs = {(row.category_1, row.category_2) for row in session.query(Category_Pairs.category_1, Category_Pairs.category_2).all()}
+
+            # Load category pairs JSON data from remote URL
+            response = requests.get(CATEGORY_PAIRS_URL)
+            response.raise_for_status()
+            pairs_data = response.json()
+
+            pairs_to_insert = []
+            skipped_pair_duplicates = 0
+            pairs_to_insert_set = set()
+
+            for pair in pairs_data:
+                category_1 = pair['Category_1']
+                category_2 = pair['Category_2']
+                frequency = pair['Frequency']
+
+                # Skip if (category_1, category_2) already exists in DB or already being inserted
+                pair_key = (category_1, category_2)
+                if pair_key in existing_pairs or pair_key in pairs_to_insert_set:
+                    skipped_pair_duplicates += 1
                     continue
 
-                # Skip if (title, field) already exists in DB or already being inserted in this batch
-                if (title, field) in existing_title_fields or (title, field) in title_fields_to_insert:
-                    skipped_duplicates += 1
-                    continue
+                pairs_to_insert_set.add(pair_key)
+                pairs_to_insert.append(Category_Pairs(
+                    category_1=category_1,
+                    category_2=category_2,
+                    frequency=frequency
+                ))
 
-                title_fields_to_insert.add((title, field))
+            logger.info(f"Skipped {skipped_pair_duplicates} duplicate category pairs")
 
-                # Create entry for each ISSN
-                for issn in issns:
-                    issn = issn.strip()
-                    if issn:  # Skip empty ISSNs
-                        journals_to_insert.append(Journal(
-                            field=field,
-                            issn=issn,
-                            rank=rank,
-                            quartile=quartile,
-                            title=title
-                        ))
+            # Bulk insert category pairs
+            logger.info(f"Inserting {len(pairs_to_insert)} category pair entries...")
+            session.add_all(pairs_to_insert)
+            session.commit()
+            logger.info("Successfully loaded category pairs data")
 
-        logger.info(f"Skipped {skipped_duplicates} duplicate journal titles")
-
-        # Bulk insert
-        logger.info(f"Inserting {len(journals_to_insert)} journal entries...")
-        session.add_all(journals_to_insert)
-        session.commit()
         logger.info("Successfully initialized journals database")
 
     except Exception as e:

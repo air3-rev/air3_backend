@@ -95,4 +95,21 @@ class Journal(JournalBase):
     # Composite index for efficient querying by field and quartile
     __table_args__ = (
         Index('idx_field_quartile', 'field', 'quartile'),
+        UniqueConstraint('title', 'field', name='unique_title_field')
+    )
+
+
+# Category_Pairs model for journals database
+class Category_Pairs(JournalBase):
+    __tablename__ = "category_pairs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category_1 = Column(String(255), nullable=False, index=True)
+    category_2 = Column(String(255), nullable=False, index=True)
+    frequency = Column(Integer, nullable=False)
+
+    # Unique constraint on (category_1, category_2) pairs
+    __table_args__ = (
+        UniqueConstraint('category_1', 'category_2', name='unique_category_pair'),
+        Index('idx_category_1_2', 'category_1', 'category_2'),
     )
