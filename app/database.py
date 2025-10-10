@@ -84,7 +84,7 @@ class Journal(JournalBase):
     issn = Column(String(255), nullable=False)
     rank = Column(Integer, nullable=False)
     quartile = Column(String(10), nullable=False, index=True)
-    title = Column(String(500), nullable=False)
+    title = Column(String(500), nullable=False, unique=True)
 
     # Composite index for efficient querying by field and quartile
     __table_args__ = (

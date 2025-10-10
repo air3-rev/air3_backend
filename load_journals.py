@@ -5,7 +5,7 @@ Script to load journal data from JSON into SQLite database.
 import json
 import logging
 from pathlib import Path
-
+import requests
 from sqlalchemy import create_engine, Column, Integer, String, Index
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -20,7 +20,7 @@ class Journal(JournalBase):
     issn = Column(String(255), nullable=False)
     rank = Column(Integer, nullable=False)
     quartile = Column(String(10), nullable=False, index=True)
-    title = Column(String(500), nullable=False)
+    title = Column(String(500), nullable=False, unique=True)
 
     # Composite index for efficient querying by field and quartile
     __table_args__ = (
@@ -31,7 +31,7 @@ class Journal(JournalBase):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DATA_FILE = Path(__file__).parent / "app" / "data" / "category_journals.json"
+DATA_FILE = "https://drive.google.com/uc?id=1ztxGWzF6V03V5vPAucPEUCu3IIEm0ucP"
 
 
 def load_journals_data():
@@ -47,13 +47,19 @@ def load_journals_data():
     logger.info("Created journals table")
 
     # Load JSON data
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    response = requests.get(DATA_FILE)
+    response.raise_for_status()
+    data = response.json()
 
     session = JournalsSessionLocal()
 
     try:
+        # Query existing titles to avoid duplicates
+        existing_titles = {row[0] for row in session.query(Journal.title).all()}
+        logger.info(f"Found {len(existing_titles)} existing journal titles")
+
         journals_to_insert = []
+        skipped_duplicates = 0
 
         for field, journals in data.items():
             logger.info(f"Processing field: {field} ({len(journals)} journals)")
@@ -68,6 +74,11 @@ def load_journals_data():
                 if not quartile:
                     continue
 
+                # Skip if title already exists
+                if title in existing_titles:
+                    skipped_duplicates += 1
+                    continue
+
                 # Create entry for each ISSN
                 for issn in issns:
                     issn = issn.strip()
@@ -79,6 +90,8 @@ def load_journals_data():
                             quartile=quartile,
                             title=title
                         ))
+
+        logger.info(f"Skipped {skipped_duplicates} duplicate journal titles")
 
         # Bulk insert
         logger.info(f"Inserting {len(journals_to_insert)} journal entries...")
