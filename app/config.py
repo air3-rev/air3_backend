@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # Database Settings
     database_url: Optional[str] = "sqlite:///./app.db"
+    journals_database_url: Optional[str] = "sqlite:///./journals.db"
 
     # Supabase Settings
     supabase_url: Optional[str] = None
