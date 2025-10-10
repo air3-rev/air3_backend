@@ -89,13 +89,6 @@ class Journal(JournalBase):
     # Composite index for efficient querying by field and quartile
     __table_args__ = (
         Index('idx_field_quartile', 'field', 'quartile'),
-        UniqueConstraint('title', 'field', name='unique_title_field')
-    )
-
-    # Composite index for efficient querying by field and quartile
-    __table_args__ = (
-        Index('idx_field_quartile', 'field', 'quartile'),
-        UniqueConstraint('title', 'field', name='unique_title_field')
     )
 
 
