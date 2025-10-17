@@ -2,6 +2,7 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -9,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import Base, engine, JournalBase, journals_engine
-from app.routers import data_ingestion, items, journals, users, pdf
+from app.routers import data_ingestion, journals, users, pdf, papers
 from app.services.journals import initialize_journals_db
 
 # Configure logging
@@ -112,7 +113,7 @@ async def root():
 
 # Include routers
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
-app.include_router(items.router, prefix="/api/v1/items", tags=["Items"])
+app.include_router(papers.router, prefix="/api/v1/papers", tags=["papers"])
 app.include_router(data_ingestion.router, prefix="/api/v1/data", tags=["Data"])
 app.include_router(pdf.router, prefix="/api/v1/pdf", tags=["Pdf"])
 app.include_router(journals.router, prefix="/api/v1", tags=["Journals"])
