@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from app.services.data_extraction.main import extract_data as extract_data_service, extract_paper_data
-from app.services.data_ingestion.main import download_pdf_from_storage, ingest_file as ingest_file_service, ingest_paper
+from app.services.data_ingestion.main import download_pdf_from_storage, ingest_paper
 from typing import Any, Dict, Optional
 
 router = APIRouter()
@@ -34,15 +34,8 @@ class BatchExtractRequest(BaseModel):
     paper_id: Optional[str] = Field(None, description="Optional doc filter")
 
 # ----------------- Routes -----------------
-@router.post("/ingest", status_code=status.HTTP_201_CREATED)
-async def ingest_file(
-    file: UploadFile = File(..., description="A single PDF file"),
-):
-    ingest_file_service(file)
 
-
-
-
+# ----DATA EXTRACTION----
 @router.get("/extract-paper-data")
 async def extract_paper_data_route(
     extract_label: str,
@@ -64,7 +57,6 @@ async def extract_paper_data_route(
     try:
         # 1️⃣ Check if paper already has chunks in DB
         sb = _get_supabase()
-        # existing = sb.table("paper_chunks").select("id").eq("paper_id", paper_id).limit(1).execute()
         existing = sb.table("paper_chunks").select("id").filter("metadata->>paper_id", "eq", paper_id).limit(1).execute()
 
         # logger.info("Existing", existing )
@@ -98,17 +90,12 @@ async def extract_paper_data_route(
         logger.info(f'Final Res: {res}')
 
         return res
-        # return { "null": "null"}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("extract-paper-data error")
         raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-
-
 
 
 @router.post("/batch-extract-paper-data")
@@ -202,54 +189,3 @@ async def batch_extract_paper_data_route(
     except Exception as e:
         logger.exception("batch-extract-paper-data error")
         raise HTTPException(status_code=500, detail=str(e)) from e
-
-# @router.get("/extract-data")
-# async def extract_data_from_file(
-#     extract_label: str,
-#     k: int = 5,
-#     filter_doc_id: Optional[str] = None,
-# ) -> Dict[str, Any]:
-#     """Extract data for a single label using vector search + refine."""
-#     try:
-#         return await run_in_threadpool(extract_data_service, extract_label, k, filter_doc_id)
-#     except Exception as e:
-#         logger.exception("extract-data error")
-#         raise HTTPException(status_code=500, detail=str(e)) from e
-
-# @router.post("/extract-data/batch", response_model=BatchExtractResponse)
-# async def extract_data_batch(payload: BatchExtractRequest) -> BatchExtractResponse:
-#     """Process multiple labels concurrently. Returns per-label results."""
-#     async def _run_one(label: str) -> ExtractItemResponse:
-#         try:
-#             data = await run_in_threadpool(extract_data_service, label, payload.k, payload.filter_doc_id)
-#             return ExtractItemResponse(label=label, ok=True, data=data)
-#         except Exception as e:
-#             logger.exception("Batch extract failed for label=%r", label)
-#             return ExtractItemResponse(label=label, ok=False, error=str(e))
-
-#     tasks = [asyncio.create_task(_run_one(lbl)) for lbl in payload.labels]
-#     results = await asyncio.gather(*tasks)
-#     return BatchExtractResponse(results=results)
-
-# @router.get("/extract-data/batch", response_model=BatchExtractResponse)
-# async def extract_data_batch_get(
-#     labels: List[str] = Query(..., description="Repeat parameter for multiple labels, e.g. ?labels=a&labels=b"),
-#     k: int = Query(5, ge=1, le=50),
-#     filter_doc_id: Optional[str] = Query(None),
-# ) -> BatchExtractResponse:
-#     """GET variant for convenience (supports repeated ?labels=... parameters)."""
-#     if not labels:
-#         raise HTTPException(status_code=422, detail="At least one label is required")
-
-#     async def _run_one(label: str) -> ExtractItemResponse:
-#         try:
-#             data = await run_in_threadpool(extract_data_service, label, k, filter_doc_id)
-#             return ExtractItemResponse(label=label, ok=True, data=data)
-#         except Exception as e:
-#             logger.exception("Batch extract failed for label=%r", label)
-#             return ExtractItemResponse(label=label, ok=False, error=str(e))
-
-#     tasks = [asyncio.create_task(_run_one(lbl)) for lbl in labels]
-#     results = await asyncio.gather(*tasks)
-#     logger.info(results)
-#     return BatchExtractResponse(results=results)
