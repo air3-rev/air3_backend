@@ -1,47 +1,64 @@
 -- MIGRATION: Create sections table for storing generated literature review content
 BEGIN;
 
--- Create the sections table
-CREATE TABLE sections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  review_id UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-  parent_section_id UUID NULL REFERENCES sections(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT NULL,
-  summary TEXT NULL,
-  content TEXT NULL,
-  context JSONB DEFAULT '{}'::jsonb,
-  order_index INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- Create indexes for better query performance
-CREATE INDEX idx_sections_review_id ON sections(review_id);
-CREATE INDEX idx_sections_parent_section_id ON sections(parent_section_id);
-CREATE INDEX idx_sections_order_index ON sections(review_id, order_index);
-
--- Create trigger to update the updated_at column
+-- 1. Create or replace helper trigger function (shared by multiple tables)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = now();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
+-- 2. Create the sections table (linked to reviews and structures)
+CREATE TABLE IF NOT EXISTS public.sections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Link to the review (main entity)
+  review_id UUID NOT NULL REFERENCES public.reviews(id) ON DELETE CASCADE,
+
+  -- Link to the structural blueprint (section/subsection design)
+  structure_id UUID NOT NULL REFERENCES public.structures(id) ON DELETE CASCADE,
+
+  -- Self-referencing for subsections
+  parent_section_id UUID NULL REFERENCES public.sections(id) ON DELETE CASCADE,
+
+  -- Actual content
+  title TEXT NOT NULL,
+  description TEXT NULL,
+  summary TEXT NULL,
+  content TEXT NULL,
+  context JSONB DEFAULT '{}'::jsonb,
+
+  -- Metadata
+  order_index INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 3. Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_sections_review_id ON public.sections(review_id);
+CREATE INDEX IF NOT EXISTS idx_sections_structure_id ON public.sections(structure_id);
+CREATE INDEX IF NOT EXISTS idx_sections_parent_section_id ON public.sections(parent_section_id);
+CREATE INDEX IF NOT EXISTS idx_sections_order_index ON public.sections(review_id, order_index);
+
+-- 4. Trigger for updated_at
+DROP TRIGGER IF EXISTS update_sections_updated_at ON public.sections;
 CREATE TRIGGER update_sections_updated_at
-    BEFORE UPDATE ON sections
+    BEFORE UPDATE ON public.sections
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Enable RLS
-ALTER TABLE sections ENABLE ROW LEVEL SECURITY;
+-- 5. Enable Row Level Security
+ALTER TABLE public.sections ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policy - users can only access sections from reviews they own
-CREATE POLICY sections_policy ON sections
+-- 6. Policy: only allow users to access their own review sections
+DROP POLICY IF EXISTS sections_policy ON public.sections;
+CREATE POLICY sections_policy ON public.sections
   FOR ALL
   USING (
-    review_id IN (SELECT id FROM reviews WHERE user_id = auth.uid())
+    review_id IN (
+      SELECT id FROM public.reviews WHERE user_id = auth.uid()
+    )
   );
 
 COMMIT;
