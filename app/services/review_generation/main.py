@@ -19,6 +19,7 @@ from app.schemas.review_generation import (
 )
 
 logger = logging.getLogger(__name__)
+from app.config import settings
 
 
 class ReviewGenerationService:
@@ -28,7 +29,9 @@ class ReviewGenerationService:
         self.llm = ChatOpenAI(
             model="gpt-4o",
             temperature=0.3,  # Lower temperature for more consistent academic writing
-            max_tokens=2000
+            max_tokens=2000,
+            api_key = settings.openai_api_key
+
         )
 
     async def generate_section_content(self, request: GenerateSectionRequest) -> GenerateSectionResponse:
