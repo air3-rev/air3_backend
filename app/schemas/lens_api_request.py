@@ -95,6 +95,7 @@ class LensSearchRequest(BaseModel):
 class UserLensSearchInput(BaseModel):
     query_string: str = Field(..., example='"Skill Ontology"')
     fields: List[str] = Field(default_factory=lambda: ["title", "abstract", "full_text"])
+    ranking: Optional[str]
     default_operator: Literal["and", "or"] = "and"
     year_from: Optional[int] = None
     year_to: Optional[int] = None

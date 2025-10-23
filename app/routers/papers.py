@@ -15,6 +15,22 @@ from app.supabase_auth import get_current_user_from_supabase, get_optional_user
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# FT50 ISSN numbers for Financial Times Top 50 journals
+FT50_ISSN_NUMBERS = [
+    "00014273", "00018392", "00028282", "00129682", "00178012", "00187267", "00218456", "00219010",
+    "00221082", "00221090", "00222380", "00222429", "00222437", "00223808", "00251909", "0030364X",
+    "00335533", "00346527", "00472506", "00487333", "00904848", "00920703", "00935301", "01432095",
+    "01492063", "01654101", "01674544", "01708406", "02726963", "0304405X", "03613682", "03637425",
+    "07322399", "07421222", "07495978", "08239150", "08839026", "08939454", "10422587", "10477039",
+    "10477047", "10577408", "10591478", "10959920", "10970266", "1099050X", "13806653", "14657368",
+    "14676486", "1467937X", "14680262", "1475679X", "14786990", "15234614", "15265455", "15265463",
+    "1526548X", "15265498", "15265501", "15265536", "15265544", "15314650", "15327663", "15375277",
+    "1537534X", "15406261", "15406520", "15477185", "15477193", "15527824", "15571211", "1557928X",
+    "15723097", "15730697", "1573692X", "15737136", "1741282X", "17413044", "17566916", "18731317",
+    "19113846", "19303815", "19324391", "1932443X", "19375956", "19391854", "19447981", "02767783",
+    "21629730", "15329194", "00014826", "15587967"
+]
+
     
 @router.post("/advanced_search", response_model=EnrichedSearchResponse)
 async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSearchResponse:
@@ -23,8 +39,16 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
     """
     try:
         client = LensAPIClient()
-        
+
         logger.info(f"Input PAyload: {input}")
+
+        # Handle FT50 ranking: override accepted_issns and clear journal_tier/fields_of_study
+        if input.ranking == "FT50":
+            logger.info("FT50 ranking detected - overriding with FT50 ISSN list and clearing journal_tier/fields_of_study")
+            input.accepted_issns = FT50_ISSN_NUMBERS.copy()
+            input.journal_tier = None
+            input.fields_of_study = None
+            logger.info(f"Set accepted_issns to {len(input.accepted_issns)} FT50 ISSN numbers")
         if hasattr(input, 'accepted_issns') and input.accepted_issns:
             original_count = len(input.accepted_issns)
             unique_issns = list(set(input.accepted_issns))
