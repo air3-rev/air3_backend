@@ -14,11 +14,11 @@ from app.services.data_ingestion.store import store_in_vector_db
 logger = logging.getLogger(__name__)
 
 
-def ingest_file(file: UploadFile):
-    pdf_file = read_pdf_file(file)
-    pdf_doc = parse_pdf_into_document(pdf_file)
-    document_chunks = chunk_document(pdf_doc)
-    store_in_vector_db(document_chunks)
+# def ingest_file(file: UploadFile):
+#     pdf_file = read_pdf_file(file)
+#     pdf_doc = parse_pdf_into_document(pdf_file)
+#     document_chunks = chunk_document(pdf_doc)
+#     store_in_vector_db(document_chunks)
 
 
 
