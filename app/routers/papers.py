@@ -31,6 +31,26 @@ FT50_ISSN_NUMBERS = [
     "21629730", "15329194", "00014826", "15587967"
 ]
 
+HEC_Accounting_ISSN_NUMBERS = [
+        "00014273","00014826","00018392","00027766","00028282","00029602","00030554","00031224","00063444","00129682",
+        "00130133","0017811X","00189391","00206598","00218456","00219010","00219460","00220515","00220531","00221090",
+        "0022166X","00221996","00222380","00222429","00222437","00223514","00223808","00251909","00255610","0030364X",
+        "00315826","00335533","00346527","00346535","00377732","00472506","00472727","00487333","00905364","00911798",
+        "00935301","01432095","01621459","01650750","01654101","01678116","02726963","03043878","03043932","0304405X",
+        "03044076","03075400","03613682","03637425","0364765X","03772217","07322399","0734306X","07421222","07495978",
+        "08239150","08839026","08939454","08943796","08953309","08998256","09567976","0960085X","09638180","10477039",
+        "10477047","10489843","10577408","10902473","10957235","10959920","10970266","10991379","13501917","13515993",
+        "13652575","13806653","14364646","14643510","14657368","14676486","14679280","1467937X","14680262","14680297",
+        "14680386","14682354","14684497","1475679X","14769344","14786990","15234614","15265455","15265463","15265471",
+        "1526548X","15265498","15265501","15265536","15309142","15314650","15327663","15347605","15369323","1537274X",
+        "15375277","15375307","1537534X","15375390","15375943","15424766","15424774","15477185","15477193","15488004",
+        "1557928X","15580040","15587967","15723097","1573692X","15737136","17446570","17566916","18726895","18730353",
+        "18731317","18758320","19113846","19303815","19391854","19398271","19447981","2754205X","00221082","15406261",
+        "14679868", "13697412","02767783, 21629730","10591478","19375956","17562171","07416261","10957138","03630129",
+        "00036056"
+]
+
+
     
 @router.post("/advanced_search", response_model=EnrichedSearchResponse)
 async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSearchResponse:
@@ -49,15 +69,17 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
             input.journal_tier = None
             input.fields_of_study = None
             logger.info(f"Set accepted_issns to {len(input.accepted_issns)} FT50 ISSN numbers")
+        elif input.ranking == "HEC":
+            logger.info("HEC ranking detected - overriding with HEC ISSN list and clearing journal_tier/fields_of_study")
+            input.accepted_issns = HEC_Accounting_ISSN_NUMBERS.copy()
+            input.journal_tier = None
+            input.fields_of_study = None
+            logger.info(f"Set accepted_issns to {len(input.accepted_issns)} HEC Business, Accounting and Management ISSN numbers")
         if hasattr(input, 'accepted_issns') and input.accepted_issns:
             original_count = len(input.accepted_issns)
             unique_issns = list(set(input.accepted_issns))
             unique_count = len(unique_issns)
             
-            logger.info(f"ISSN Analysis:")
-            logger.info(f"  - Original ISSN count: {original_count}")
-            logger.info(f"  - Unique ISSN count: {unique_count}")
-            logger.info(f"  - Duplicates found: {original_count - unique_count}")
             
             if original_count != unique_count:
                 logger.warning(f"Found {original_count - unique_count} duplicate ISSNs, removing them")
@@ -77,7 +99,7 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
                 logger.info(f"  - First 5 ISSNs: {input.accepted_issns[:5]}")
             
             # Warning if too many ISSNs
-            if len(input.accepted_issns) > 100:
+            if len(input.accepted_issns) > 150:
                 logger.warning(f"Large number of ISSNs ({len(input.accepted_issns)}). This might cause API issues.")
         request_payload = build_lens_request_v2(input)
 
