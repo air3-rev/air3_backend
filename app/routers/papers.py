@@ -3,10 +3,16 @@ from typing import List, Optional
 from app.schemas.lens_api_request import UserLensSearchInput
 from app.schemas.search_response import EnrichedSearchResponse, PaginationMetadata
 from app.schemas.lens_api_response import ScholarResponse
+from app.schemas.schemas import GenerateSearchScopeInput, GenerateSearchScopeResponse
 from app.services.lens_client import LensAPIClient, build_lens_request, build_lens_request_v2
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
+import os
+from datetime import datetime
+from openai import OpenAI
+from app.config import settings
+import random
 
 from app.database import get_db, User
 from app.schemas.user import UserResponse, UserUpdate, UserCreate
@@ -14,6 +20,9 @@ from app.supabase_auth import get_current_user_from_supabase, get_optional_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Initialize OpenAI client
+openai_client = OpenAI(api_key=settings.openai_api_key)
 
 # FT50 ISSN numbers for Financial Times Top 50 journals
 FT50_ISSN_NUMBERS = [
@@ -156,3 +165,153 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
     except Exception as e:
         logger.exception("Dynamic lens search failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/generate_search_scope", response_model=GenerateSearchScopeResponse)
+async def generate_search_scope(
+    input: GenerateSearchScopeInput,
+    current_user: User = Depends(get_current_user_from_supabase)
+) -> GenerateSearchScopeResponse:
+    """
+    Generate optimal search scope filters based on review information using OpenAI LLM.
+    """
+    try:
+        logger.info(f"Generating search scope for review {input.review_id}")
+
+        # Load categories from JSON file
+        categories_file_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'categories.json')
+        try:
+            with open(categories_file_path, 'r') as f:
+                available_categories = json.load(f)
+        except FileNotFoundError:
+            logger.warning("Categories file not found, using default categories")
+            available_categories = [
+                "Business and International Management",
+                "Business, Management and Accounting (miscellaneous)",
+                "Economics and Econometrics",
+                "Finance",
+                "Management Information Systems",
+                "Marketing",
+                "Strategy and Management"
+            ]
+
+        # Build context from review information
+        context_parts = []
+        if input.review_title:
+            context_parts.append(f"Review Title: {input.review_title}")
+        if input.review_description:
+            context_parts.append(f"Review Description: {input.review_description}")
+        if input.keyword_groups:
+            keywords_text = []
+            for i, group in enumerate(input.keyword_groups):
+                if group.get('keywords'):
+                    keyword_texts = [k.get('text', '') for k in group['keywords'] if k.get('text')]
+                    if keyword_texts:
+                        keywords_text.append(f"Group {i+1}: {' OR '.join(keyword_texts)}")
+            if keywords_text:
+                context_parts.append(f"Keywords: {'; '.join(keywords_text)}")
+
+        context = "\n".join(context_parts) if context_parts else "No specific context provided"
+
+        # Create the LLM prompt with available categories
+        categories_sample = random.sample(available_categories, min(20, len(available_categories)))
+        categories_list = "\n".join(f"- {cat}" for cat in sorted(categories_sample))
+
+        prompt = f"""You are an expert research librarian helping to optimize search criteria for a systematic literature review.
+
+Based on the following review information, recommend optimal search filter settings for academic literature search:
+
+{context}
+
+Please analyze the review topic and suggest appropriate filters from these categories:
+
+1. **Publication Types**: Which types of publications should be included? (JournalArticle, ConferenceArticle, Book, etc.)
+2. **Date Range**: What year range would be most appropriate? (from/to years)
+3. **Journal Quality**: Which journal tiers should be included? (q1, q2, q3 - based on impact factor quartiles)
+4. **Field of Study**: Select ONLY from the available academic fields listed below. Choose 2-4 most relevant fields that match the review topic.
+5. **Open Access**: Should the search be limited to open access papers only?
+6. **Search Fields**: Which fields should be searched? (title, abstract, full_text)
+7. **Sort Order**: How should results be sorted? (relevance, citations, date, title)
+8. **Minimum Citations**: Should there be a minimum citation threshold?
+
+**Available Academic Fields:**
+{categories_list}
+
+Consider:
+- The review's scope and methodology requirements
+- Current academic publishing trends
+- Quality vs. comprehensiveness trade-offs
+- The need for recent, high-quality literature
+
+IMPORTANT: For "field_of_study", you MUST select field names that exactly match from the available academic fields list above. Do not create or modify field names.
+
+Provide your recommendations in JSON format with the following structure:
+{{
+  "publication_types": ["JournalArticle", "ConferenceArticle"],
+  "open_access_only": false,
+  "date_range": {{"from": "2015", "to": "2024"}},
+  "journal_tier": ["q1", "q2"],
+  "field_of_study": ["Business and International Management", "Strategy and Management"],
+  "search_fields": ["title", "abstract"],
+  "sort_by": "relevance",
+  "min_citations": 0,
+  "ranking": null
+}}
+
+Be conservative and practical in your recommendations. Focus on quality over quantity unless the topic suggests otherwise."""
+
+        # Call OpenAI API
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a research methodology expert specializing in systematic literature review search strategies."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=1000
+        )
+
+        # Extract the JSON response
+        llm_response = response.choices[0].message.content.strip()
+
+        # Try to parse the JSON response
+        try:
+            # Find JSON in the response (in case there's extra text)
+            json_start = llm_response.find('{')
+            json_end = llm_response.rfind('}') + 1
+            if json_start != -1 and json_end > json_start:
+                json_str = llm_response[json_start:json_end]
+                filters_data = json.loads(json_str)
+            else:
+                raise ValueError("No JSON found in response")
+
+            logger.info(f"Generated search scope filters: {filters_data}")
+
+            return GenerateSearchScopeResponse(
+                success=True,
+                filters=filters_data,
+                reasoning="Filters generated based on review topic analysis"
+            )
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response as JSON: {llm_response}")
+            # Return default filters if JSON parsing fails
+            default_filters = {
+                "publication_types": ["JournalArticle", "ConferenceArticle"],
+                "open_access_only": False,
+                "date_range": {"from": "2015", "to": str(datetime.now().year)},
+                "journal_tier": ["q1", "q2"],
+                "search_fields": ["title", "abstract"],
+                "sort_by": "relevance",
+                "min_citations": 0,
+                "ranking": None
+            }
+            return GenerateSearchScopeResponse(
+                success=True,
+                filters=default_filters,
+                reasoning="Used default filters due to parsing error"
+            )
+
+    except Exception as e:
+        logger.exception(f"Failed to generate search scope for review {input.review_id}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate search scope: {str(e)}")
