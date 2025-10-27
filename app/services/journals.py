@@ -4,6 +4,7 @@ Service functions for journal operations.
 import json
 import logging
 from typing import List
+from urllib.parse import unquote
 
 import requests
 from sqlalchemy.orm import Session
@@ -64,13 +65,16 @@ def get_related_categories(categories: List[str], limit: int = 10) -> List[dict]
     try:
         from collections import defaultdict
 
+        # URL decode the input categories to handle encoded spaces
+        decoded_categories = [unquote(cat) for cat in categories]
+
         # Convert input categories to set for faster lookup
-        input_categories = set(categories)
+        input_categories = set(decoded_categories)
 
         # Query all pairs where either category_1 or category_2 matches input categories
         pairs = db.query(Category_Pairs).filter(
-            (Category_Pairs.category_1.in_(categories)) |
-            (Category_Pairs.category_2.in_(categories))
+            (Category_Pairs.category_1.in_(decoded_categories)) |
+            (Category_Pairs.category_2.in_(decoded_categories))
         ).all()
 
         # Aggregate frequencies for related categories
