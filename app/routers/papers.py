@@ -70,7 +70,15 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
         client = LensAPIClient()
 
         logger.info(f"Input PAyload: {input}")
-
+        if input.query_string:
+                    input.query_string = input.query_string.strip()
+                    if input.query_string.startswith('AND '):
+                        input.query_string = input.query_string[4:]  # Remove 'AND '
+                        logger.warning(f"Removed leading AND from query_string")
+                    elif input.query_string.startswith('OR '):
+                        input.query_string = input.query_string[3:]  # Remove 'OR '
+                        logger.warning(f"Removed leading OR from query_string")
+                    logger.info(f"Sanitized query_string: {input.query_string}")
         # Handle FT50 ranking: override accepted_issns and clear journal_tier/fields_of_study
         if input.ranking == "FT50":
             logger.info("FT50 ranking detected - overriding with FT50 ISSN list and clearing journal_tier/fields_of_study")
