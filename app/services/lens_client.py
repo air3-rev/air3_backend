@@ -310,7 +310,7 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         }
         must_clauses.append(issn_terms)
 
-    bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
+    # bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
 
     query_dict = {
         "bool": {
@@ -326,5 +326,55 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         "size": size,
         "from":offset
     }
+    return payload
+def build_doi_search_request(dois: List[str], include_fields: Optional[List[str]] = None) -> dict:
+    """
+    Build a Lens API request to search for papers by DOI numbers.
+
+    Args:
+        dois: List of DOI strings to search for
+        include_fields: Optional list of fields to include in response
+
+    Returns:
+        Dict containing the search request payload
+    """
+    if not include_fields:
+        include_fields = [
+            "title",
+            "open_access",
+            "abstract",
+            "lens_id",
+            "year_published",
+            "source_urls",
+            "scholarly_citations_count",
+            "authors",
+            "external_ids",
+            "references",
+            "references_count",
+            "references_resolved_count",
+            "source"
+        ]
+
+    # Clean and normalize DOIs - keep original case as Lens API is case-sensitive for DOIs
+    cleaned_dois = [
+        doi.replace("\\/", "/").strip()
+        for doi in dois
+    ]
+
+    # Use the correct Lens API field path for DOI search
+    query_dict = {
+        "terms": {
+            "ids.doi": cleaned_dois
+        }
+    }
+
+    payload = {
+        "query": query_dict,
+        "include": include_fields,
+        "size": min(len(dois), 1000),  # API max is 1000
+        "from": 0
+    }
+
+    logger.info(f"DOI search payload: {json.dumps(payload, indent=2)}")
 
     return payload

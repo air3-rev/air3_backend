@@ -1,10 +1,11 @@
+from app.schemas.schemas import FetchByDoisInput, FetchByDoisResponse
 import json
 from typing import List, Optional
 from app.schemas.lens_api_request import UserLensSearchInput
 from app.schemas.search_response import EnrichedSearchResponse, PaginationMetadata
 from app.schemas.lens_api_response import ScholarResponse
 from app.schemas.schemas import GenerateSearchScopeInput, GenerateSearchScopeResponse
-from app.services.lens_client import LensAPIClient, build_lens_request, build_lens_request_v2
+from app.services.lens_client import LensAPIClient, build_lens_request, build_lens_request_v2, build_doi_search_request
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
@@ -319,7 +320,91 @@ Be conservative and practical in your recommendations. Focus on quality over qua
                 filters=default_filters,
                 reasoning="Used default filters due to parsing error"
             )
+    except Exception as e:
+        logger.exception("Dynamic lens search failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/fetch_by_dois", response_model=FetchByDoisResponse)
+async def fetch_papers_by_dois(input: FetchByDoisInput) -> FetchByDoisResponse:
+    """
+    Fetch papers by DOI numbers from Lens API.
+
+    Returns found papers, count of found papers, count of not found papers,
+    and list of DOIs that were not found.
+    """
+    try:
+        if not input.dois:
+            return FetchByDoisResponse(
+                data=[],
+                found_count=0,
+                not_found_count=0,
+                not_found_dois=[]
+            )
+
+        client = LensAPIClient()
+
+        # Build the search request for DOIs
+        request_payload = build_doi_search_request(input.dois)
+
+        # Make the API call
+        api_response = client.search(request_payload)
+
+        # Extract DOIs from the found papers
+        found_dois = set()
+        parsed_articles = []
+        for item in api_response.data:
+            try:
+                # Fill in missing required fields with defaults (same as advanced_search)
+                if 'authors' in item and item['authors']:
+                    for author in item['authors']:
+                        if 'collective_name' not in author:
+                            author['collective_name'] = None
+                        if 'affiliations' not in author:
+                            author['affiliations'] = []
+
+                if 'source' in item and item['source']:
+                    source = item['source']
+                    if 'type' not in source:
+                        source['type'] = None
+                    if 'issn' not in source:
+                        source['issn'] = []
+                    if 'country' not in source:
+                        source['country'] = None
+                    if 'asjc_codes' not in source:
+                        source['asjc_codes'] = None
+                    if 'asjc_subjects' not in source:
+                        source['asjc_subjects'] = None
+
+                if 'references' in item and item['references']:
+                    for ref in item['references']:
+                        if 'text' not in ref:
+                            ref['text'] = None
+
+
+                parsed_article = ScholarResponse(**item)
+                parsed_articles.append(parsed_article)
+
+                # Extract DOI from external_ids - keep original case
+                if parsed_article.external_ids:
+                    for ext_id in parsed_article.external_ids:
+                        if ext_id.type.lower() == 'doi':
+                            found_dois.add(ext_id.value)
+
+            except Exception as e:
+                logger.warning(f"Failed to parse article: {e}, item: {item}")
+                continue
+
+        # Determine which DOIs were not found - keep original case for comparison
+        input_dois_set = set(input.dois)
+        not_found_dois = list(input_dois_set - found_dois)
+
+        return FetchByDoisResponse(
+            data=parsed_articles,
+            found_count=len(parsed_articles),
+            not_found_count=len(not_found_dois),
+            not_found_dois=not_found_dois
+        )
 
     except Exception as e:
-        logger.exception(f"Failed to generate search scope for review {input.review_id}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate search scope: {str(e)}")
+        logger.exception("Fetch by DOIs failed")
+        raise HTTPException(status_code=500, detail=str(e))
