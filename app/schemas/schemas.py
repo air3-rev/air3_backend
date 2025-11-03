@@ -1,45 +1,29 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
-from datetime import datetime
+from typing import List, Optional
+from pydantic import BaseModel, Field
+from app.schemas.lens_api_response import ScholarResponse
 
-
-# Base schemas
-class BaseSchema(BaseModel):
-    class Config:
-        from_attributes = True
-
-
-# Search scope generation schemas
 class GenerateSearchScopeInput(BaseModel):
     review_id: str
     review_title: Optional[str] = None
     review_description: Optional[str] = None
-    keyword_groups: Optional[List[Dict[str, Any]]] = None
-
-
-class SearchScopeFilters(BaseModel):
-    publication_types: Optional[List[str]] = None
-    open_access_only: Optional[bool] = None
-    date_range: Optional[Dict[str, str]] = None
-    field_of_study: Optional[List[str]] = None
-    journal_tier: Optional[List[str]] = None
-    min_citations: Optional[int] = None
-    sort_by: Optional[str] = None
-    search_fields: Optional[List[str]] = None
-    ranking: Optional[str] = None
-
+    keyword_groups: Optional[List[dict]] = None
 
 class GenerateSearchScopeResponse(BaseModel):
     success: bool
-    filters: SearchScopeFilters
-    reasoning: Optional[str] = None
+    filters: dict
+    reasoning: str
 
+class FetchByDoisInput(BaseModel):
+    dois: List[str] = []
 
-# Generic response schemas
-class MessageResponse(BaseModel):
-    message: str
-
-
-class ErrorResponse(BaseModel):
-    message: str
-    status_code: int
+class FetchByDoisResponse(BaseModel):
+    data: List[ScholarResponse]
+    found_count: int
+    not_found_count: int
+    not_found_dois: List[str]
+    
+class DownloadPdfRequest(BaseModel):
+    paper_id: str = Field(..., description="UUID of the paper")
+    pdf_url: str = Field(..., description="URL of the PDF to download")
+    user_id: str = Field(..., description="User ID for storage path")
+    review_id: str = Field(..., description="Review ID for storage path")

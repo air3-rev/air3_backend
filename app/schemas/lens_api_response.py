@@ -81,7 +81,7 @@ class OpenAccessLocation(BaseModel):
 class OpenAccess(BaseModel):
     license: Optional[str]
     colour: Optional[str]
-    locations: Optional[List[OpenAccessLocation]]
+    locations: Optional[OpenAccessLocation]
 
 
 class Issn(BaseModel):
@@ -164,7 +164,7 @@ class ScholarResponse(BaseModel):
     year_published: Optional[int] = None
     conference: Optional[Conference] = None
     author_count: Optional[int] = None
-    open_access: Optional[OpenAccess] = None
+    open_access: Optional[Any] = None
     source: Optional[Source] = None
     keywords: Optional[List[str]] = None
     mesh_terms: Optional[List[MeshTerm]] = None
