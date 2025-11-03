@@ -45,7 +45,7 @@ class LensAPIClient:
         Returns:
             LensAPIFullResponse: Complete API response with total, max_score, and data.
         """
-        try:
+        try:            
             response = requests.post(
                 self._url,
                 headers={
@@ -262,12 +262,12 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         }
         filter_clauses.append(range_filter)
 
-    
-
     query_string = user_input.query_string.strip()
     if not query_string:
         query_string = '"research"'  # Fallback query
         logger.warning("Empty query string provided, using fallback")
+    else: 
+        query_string = query_string.replace('"', "'")
 
 
     query_clause = {
