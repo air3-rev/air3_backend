@@ -53,7 +53,7 @@ class LensAPIClient:
                     "Authorization": self._token,
                 },
                 json=payload,
-                timeout=30,
+                timeout=60,
             )
             
             # logger.info(f"Response status: {response.status_code}")

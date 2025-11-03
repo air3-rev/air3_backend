@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.schemas.lens_api_response import ScholarResponse
 
 class GenerateSearchScopeInput(BaseModel):
@@ -21,3 +21,9 @@ class FetchByDoisResponse(BaseModel):
     found_count: int
     not_found_count: int
     not_found_dois: List[str]
+    
+class DownloadPdfRequest(BaseModel):
+    paper_id: str = Field(..., description="UUID of the paper")
+    pdf_url: str = Field(..., description="URL of the PDF to download")
+    user_id: str = Field(..., description="User ID for storage path")
+    review_id: str = Field(..., description="Review ID for storage path")
