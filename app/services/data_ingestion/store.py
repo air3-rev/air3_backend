@@ -9,6 +9,8 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from supabase import Client, create_client
 from app.config import settings
+from app.services.data_ingestion.utils import sanitize_metadata, sanitize_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,8 +43,27 @@ def get_vectorstore() -> SupabaseVectorStore:
 vectorstore = get_vectorstore()
 
 
+def sanitize_document(doc: Document) -> Document:
+    """
+    Sanitize a document's content and metadata to ensure database compatibility.
+    """
+    # Sanitize page content
+    sanitized_content = sanitize_text(doc.page_content)
+
+    # Sanitize metadata recursively
+    sanitized_metadata = sanitize_metadata(doc.metadata)
+
+    return Document(
+        page_content=sanitized_content,
+        metadata=sanitized_metadata
+    )
+
+
 def store_in_vector_db(docs: List[Document]):
     """Store embeddings and metadata in the vector database."""
 
-    vectorstore.add_documents(docs)
+    # Sanitize all documents before storing
+    sanitized_docs = [sanitize_document(doc) for doc in docs]
+
+    vectorstore.add_documents(sanitized_docs)
     
