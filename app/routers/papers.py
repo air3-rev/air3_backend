@@ -120,6 +120,7 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
             if len(input.accepted_issns) > 150:
                 logger.warning(f"Large number of ISSNs ({len(input.accepted_issns)}). This might cause API issues.")
         request_payload = build_lens_request_v2(input)
+        logger.info(f"Request PAyload: {request_payload}")
 
         api_response = client.search(request_payload)
         
