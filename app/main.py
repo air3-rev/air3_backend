@@ -116,7 +116,7 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(papers.router, prefix="/api/v1/papers", tags=["papers"])
 app.include_router(data_ingestion.router, prefix="/api/v1/data", tags=["Data"])
 app.include_router(pdf.router, prefix="/api/v1/pdf", tags=["Pdf"])
-app.include_router(journals.router, prefix="/api/v1", tags=["Journals"])
+app.include_router(journals.router, prefix="/api/v1/journals", tags=["Journals"])
 app.include_router(review_generation.router, prefix="/api/v1/review", tags=["Review Generation"])
 
 

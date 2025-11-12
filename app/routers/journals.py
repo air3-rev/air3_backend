@@ -5,7 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.journals import get_issns, get_related_categories, load_journals_db, empty_journals_db
+from app.services.journals import get_issns, get_related_categories, load_journals_db, empty_journals_db, search_journals_by_name, get_issns_by_titles, get_journals_by_ranking
 
 router = APIRouter()
 
@@ -72,3 +72,64 @@ async def empty_journals_database():
         return {"message": "Journals database emptied successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error emptying journals database: {str(e)}")
+
+
+@router.get("/search", response_model=List[str])
+async def search_journals(
+    q: str = Query(..., description="Search query for journal names"),
+    limit: int = Query(10, description="Maximum number of results to return", ge=1, le=50)
+) -> List[str]:
+    """
+    Search for journals by name/title.
+
+    Returns a list of journal titles that match the search query.
+    """
+    try:
+        if not q or len(q.strip()) < 2:
+            raise HTTPException(status_code=400, detail="Search query must be at least 2 characters long")
+
+        journals = search_journals_by_name(q.strip(), limit=limit)
+        return journals
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching journals: {str(e)}")
+
+
+@router.get("/issns", response_model=List[str])
+async def get_journals_issns_by_titles(
+    titles: str = Query(..., description="Comma-separated journal titles to get ISSNs for")
+) -> List[str]:
+    """
+    Get ISSN numbers for the specified journal titles.
+
+    Returns a list of ISSN strings for the given journal titles.
+    """
+    try:
+        # Split comma-separated titles and clean up whitespace
+        title_list = [title.strip() for title in titles.split(',') if title.strip()]
+
+        if not title_list:
+            raise HTTPException(status_code=400, detail="At least one journal title must be provided")
+
+        issns = get_issns_by_titles(title_list)
+        return issns
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving ISSNs: {str(e)}")
+
+
+@router.get("/ranking/{ranking}", response_model=List[str])
+async def get_journals_for_ranking(ranking: str) -> List[str]:
+    """
+    Get journal titles for the specified ranking.
+
+    Returns a list of journal title strings for the given ranking.
+    """
+    try:
+        if ranking not in ["FT50", "HEC", "IS"]:
+            raise HTTPException(status_code=400, detail="Ranking must be 'FT50', 'HEC', or 'IS'")
+
+        journals = get_journals_by_ranking(ranking)
+        return journals
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving journals for ranking: {str(e)}")

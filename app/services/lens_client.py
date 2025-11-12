@@ -303,12 +303,15 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         must_clauses.append(pub_type_bool)
     # Add ISSN filter if requested
     if accepted_issns:
+        logger.info(f"Adding ISSN filter with {len(accepted_issns)} ISSNs: {accepted_issns[:5]}...")
         issn_terms = {
             "terms": {
                 "source.issn": accepted_issns
             }
         }
         must_clauses.append(issn_terms)
+    else:
+        logger.info("No accepted_issns provided, skipping ISSN filter")
 
     # bool_query = BoolQuery(must = must_clauses,  filter=filter_clauses if filter_clauses else None)
 

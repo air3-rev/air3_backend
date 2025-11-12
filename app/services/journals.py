@@ -41,8 +41,8 @@ def get_issns(fields: List[str], quartiles: List[str]) -> List[str]:
 
         journals = query.all()
 
-        # Extract ISSNs from result tuples
-        issns = [journal.issn for journal in journals]
+        # Extract ISSNs from result tuples, filter out None and empty values
+        issns = [journal.issn for journal in journals if journal.issn and journal.issn.strip()]
         return issns
 
     finally:
@@ -237,6 +237,118 @@ def empty_journals_db():
         raise
     finally:
         session.close()
+
+
+def search_journals_by_name(search_term: str, limit: int = 10) -> List[str]:
+    """
+    Search journals by title/name.
+
+    Args:
+        search_term: The search term to match against journal titles
+        limit: Maximum number of results to return
+
+    Returns:
+        List of journal titles matching the search term
+    """
+    db: Session = next(get_journals_db())
+
+    try:
+        # Search for journals where title contains the search term (case-insensitive)
+        journals = db.query(Journal.title).filter(
+            Journal.title.ilike(f'%{search_term}%')
+        ).distinct().limit(limit).all()
+
+        # Extract titles from result tuples
+        titles = [journal.title for journal in journals]
+        return titles
+
+    finally:
+        db.close()
+
+
+def get_issns_by_titles(titles: List[str]) -> List[str]:
+    """
+    Get ISSN numbers for the given journal titles.
+
+    Args:
+        titles: List of journal titles
+
+    Returns:
+        List of ISSN strings
+    """
+    db: Session = next(get_journals_db())
+
+    try:
+        # Query ISSNs for the given titles
+        journals = db.query(Journal.issn).filter(Journal.title.in_(titles)).all()
+
+        # Extract ISSNs from result tuples, filter out None and empty values
+        issns = [journal.issn for journal in journals if journal.issn and journal.issn.strip()]
+        return issns
+
+    finally:
+        db.close()
+
+
+def get_journals_by_ranking(ranking: str) -> List[str]:
+    """
+    Get journal titles for the given ranking.
+
+    Args:
+        ranking: Ranking type ("FT50", "HEC", or "IS")
+
+    Returns:
+        List of journal title strings
+    """
+    from app.routers.papers import FT50_ISSN_NUMBERS, HEC_Accounting_ISSN_NUMBERS, IS_Information_Systems_ISSN_NUMBERS
+
+    if ranking == "FT50":
+        issns = FT50_ISSN_NUMBERS
+    elif ranking == "HEC":
+        issns = HEC_Accounting_ISSN_NUMBERS
+    elif ranking == "IS":
+        issns = IS_Information_Systems_ISSN_NUMBERS
+    else:
+        return []
+
+    db: Session = next(get_journals_db())
+
+    try:
+        # Query titles for the given ISSNs
+        journals = db.query(Journal.title).filter(Journal.issn.in_(issns)).distinct().all()
+
+        # Extract titles from result tuples
+        titles = [journal.title for journal in journals]
+
+        # If no titles found in database, return some sample journal names for the ranking
+        # This ensures the UI shows something even if database is not populated
+        if not titles:
+            if ranking == "FT50":
+                titles = [
+                    "Academy of Management Journal", "Academy of Management Review", "Administrative Science Quarterly",
+                    "Journal of Management", "Organization Science", "Strategic Management Journal",
+                    "Journal of Marketing", "Marketing Science", "Journal of Consumer Research",
+                    "Journal of Finance", "Journal of Financial Economics", "The Accounting Review"
+                ][:10]  # Limit to 10 for UI
+            elif ranking == "HEC":
+                titles = [
+                    "Academy of Management Journal", "Academy of Management Review", "Administrative Science Quarterly",
+                    "Journal of Management", "Organization Science", "Strategic Management Journal",
+                    "Journal of Marketing", "Marketing Science", "Journal of Consumer Research",
+                    "The Accounting Review", "Journal of Accounting Research", "Contemporary Accounting Research"
+                ][:10]  # Limit to 10 for UI
+            elif ranking == "IS":
+                titles = [
+                    "MIS Quarterly", "Information Systems Research", "Journal of Management Information Systems",
+                    "Journal of Strategic Information Systems", "European Journal of Information Systems",
+                    "Information & Management", "Journal of the Association for Information Systems",
+                    "Information Systems Journal"
+                ]
+
+        return titles
+
+    finally:
+        db.close()
 
 
 def initialize_journals_db():
