@@ -60,6 +60,10 @@ HEC_Accounting_ISSN_NUMBERS = [
         "00036056"
 ]
 
+IS_Information_Systems_ISSN_NUMBERS = [
+    "02767783", "15265455", "0960085X", "09638180", "07421222", "15587967", "13652575", "14680386", "02683962", "14664437"
+]
+
 
     
 @router.post("/advanced_search", response_model=EnrichedSearchResponse)
@@ -93,6 +97,12 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
             input.journal_tier = None
             input.fields_of_study = None
             logger.info(f"Set accepted_issns to {len(input.accepted_issns)} HEC Business, Accounting and Management ISSN numbers")
+        elif input.ranking == "IS":
+            logger.info("IS ranking detected - overriding with IS ISSN list and clearing journal_tier/fields_of_study")
+            input.accepted_issns = IS_Information_Systems_ISSN_NUMBERS.copy()
+            input.journal_tier = None
+            input.fields_of_study = None
+            logger.info(f"Set accepted_issns to {len(input.accepted_issns)} IS Information Systems ISSN numbers")
         if hasattr(input, 'accepted_issns') and input.accepted_issns:
             original_count = len(input.accepted_issns)
             unique_issns = list(set(input.accepted_issns))

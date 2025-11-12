@@ -5,7 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.journals import get_issns, get_related_categories, load_journals_db, empty_journals_db, search_journals_by_name, get_issns_by_titles
+from app.services.journals import get_issns, get_related_categories, load_journals_db, empty_journals_db, search_journals_by_name, get_issns_by_titles, get_journals_by_ranking
 
 router = APIRouter()
 
@@ -116,3 +116,20 @@ async def get_journals_issns_by_titles(
         return issns
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving ISSNs: {str(e)}")
+
+
+@router.get("/ranking/{ranking}", response_model=List[str])
+async def get_journals_for_ranking(ranking: str) -> List[str]:
+    """
+    Get journal titles for the specified ranking.
+
+    Returns a list of journal title strings for the given ranking.
+    """
+    try:
+        if ranking not in ["FT50", "HEC", "IS"]:
+            raise HTTPException(status_code=400, detail="Ranking must be 'FT50', 'HEC', or 'IS'")
+
+        journals = get_journals_by_ranking(ranking)
+        return journals
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving journals for ranking: {str(e)}")
