@@ -14,7 +14,8 @@ import uuid
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from app.services.data_extraction.main import extract_data as extract_data_service, extract_paper_data
+from app.services.data_extraction.main import extract_data as extract_data_service, extract_paper_data, extract_paper_data_with_full_text
+from app.services.data_ingestion.read import read_paper_pdf_file
 from app.services.data_ingestion.main import download_pdf_from_storage, ingest_paper
 from typing import Any, Dict, Optional
 from app.config import settings
@@ -34,7 +35,6 @@ class BatchExtractResponse(BaseModel):
 
 class BatchExtractRequest(BaseModel):
     labels: List[str] = Field(..., min_length=1, max_length=50, description="List of labels to process")
-    k: int = Field(5, ge=1, le=50, description="Top-k chunks per label")
     paper_id: Optional[str] = Field(None, description="Optional doc filter")
 
 # ----------------- Routes -----------------
@@ -126,37 +126,34 @@ async def batch_extract_paper_data_route(
 
         logger.info(f'Existing chunks for paper {request.paper_id}: {existing}')
 
-        if not existing.data:  
-            logger.info("Paper %s not yet ingested, ingesting now...", request.paper_id)
+        # Always download PDF and extract full text for direct GPT-4 extraction
+        logger.info("Downloading PDF for direct extraction...")
 
-            # 2️⃣ Get storage path from papers table
-            paper_res = sb.table("papers").select("storage_path").eq("id", request.paper_id).single().execute()
-            if not paper_res.data:
-                raise HTTPException(status_code=404, detail=f"Paper {request.paper_id} not found in papers table")
+        # Get storage path from papers table
+        paper_res = sb.table("papers").select("storage_path").eq("id", request.paper_id).single().execute()
+        if not paper_res.data:
+            raise HTTPException(status_code=404, detail=f"Paper {request.paper_id} not found in papers table")
 
-            storage_path = paper_res.data["storage_path"]
-            logger.info(f'storage_path: {storage_path}')
-            
-            # 3️⃣ Download file from Supabase storage
-            pdf_bytes = download_pdf_from_storage(storage_path)
-            logger.info(f'pdf_bytes: {pdf_bytes[0:150] if pdf_bytes else "None"}')
+        storage_path = paper_res.data["storage_path"]
+        logger.info(f'storage_path: {storage_path}')
 
-            # 4️⃣ Ingest into paper_chunks
-            ingest_paper(pdf_bytes, paper_id=request.paper_id)
+        # Download file from Supabase storage
+        pdf_bytes = download_pdf_from_storage(storage_path)
+        if not pdf_bytes:
+            raise HTTPException(status_code=400, detail="Failed to download PDF")
 
-        # 5️⃣ Create async task for each label extraction
-        async def _extract_one_label(label: str) -> tuple[str, Dict[str, Any]]:
-            """Extract data for a single label and return (label, result) tuple"""
-            try:
-                result = await run_in_threadpool(extract_paper_data, label, request.k, request.paper_id)
-                return (label, result)
-            except Exception as e:
-                logger.exception(f"Error extracting label '{label}' for paper {request.paper_id}")
-                return (label, {"error": str(e)})
+        # Extract full text from PDF
+        pdf_file = read_paper_pdf_file(pdf_bytes, filename=f"{request.paper_id}.pdf")
+        full_text = pdf_file.content
+        logger.info(f'Extracted full text length: {len(full_text)}')
 
-        # 6️⃣ Run all extractions concurrently
-        tasks = [asyncio.create_task(_extract_one_label(label)) for label in request.labels]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Extract data for all labels at once using full text
+        try:
+            all_results = await run_in_threadpool(extract_paper_data_with_full_text, request.labels, full_text)
+            results = [(label, all_results.get(label, {"error": "Label not found in results"})) for label in request.labels]
+        except Exception as e:
+            logger.exception(f"Error extracting labels for paper {request.paper_id}")
+            results = [(label, {"error": str(e)}) for label in request.labels]
 
         # 7️⃣ Process results and handle any exceptions
         final_results = {}
@@ -184,7 +181,7 @@ async def batch_extract_paper_data_route(
                 "total_labels": len(request.labels),
                 "successful_extractions": successful_extractions,
                 "failed_extractions": failed_extractions,
-                "k_chunks_per_label": request.k
+                "extraction_method": "full_text_gpt4"
             }
         }
 

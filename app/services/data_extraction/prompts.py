@@ -19,9 +19,35 @@ class RefinedDocModel(BaseModel):
     extracted_items: List[ExtractedItem] = []
     sources: List[SourceItem] = []
 
+class MultiLabelExtractionModel(BaseModel):
+    """Model for extracting multiple labels at once"""
+    pass  # We'll define this dynamically based on labels
+
 parser = JsonOutputParser(pydantic_object=RefinedDocModel)
 
-FORMAT_INSTRUCTIONS = parser.get_format_instructions()  
+FORMAT_INSTRUCTIONS = parser.get_format_instructions()
+
+def get_multi_label_format_instructions(labels: List[str]) -> str:
+    """Generate format instructions for multiple labels"""
+    label_names = [label.split(':')[0].strip() for label in labels]
+
+    schema = "{\n"
+    for i, label_name in enumerate(label_names):
+        schema += f'  "{label_name}": {{\n'
+        schema += '    "summary": "string",\n'
+        schema += '    "key_points": ["string"],\n'
+        schema += '    "extracted_items": [{"name": "string", "value": "any"}],\n'
+        schema += '    "sources": [{"id": "string", "reason": "string"}]\n'
+        schema += '  }'
+        if i < len(label_names) - 1:
+            schema += ','
+        schema += '\n'
+    schema += "}\n"
+
+    return f"""Return a JSON object with the following structure:
+{schema}
+
+Each label should have its own object with summary, key_points, extracted_items, and sources fields."""
 
 # _INITIAL_PROMPT_TMPL = """You are a precise data extractor.
 
