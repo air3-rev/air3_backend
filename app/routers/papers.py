@@ -22,6 +22,35 @@ from app.supabase_auth import get_current_user_from_supabase, get_optional_user
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+def sanitize_for_logging(data):
+    """
+    Sanitize data for logging by truncating long ISSN lists to first 3 items and total count.
+    """
+    if isinstance(data, dict):
+        sanitized = {}
+        for k, v in data.items():
+            if k == 'accepted_issns' and isinstance(v, list):
+                if len(v) > 3:
+                    sanitized[k] = f"{v[:3]}... (total: {len(v)})"
+                else:
+                    sanitized[k] = v
+            elif isinstance(v, dict) and 'source.issn' in v and isinstance(v['source.issn'], list):
+                # Handle nested terms with source.issn
+                issns = v['source.issn']
+                if len(issns) > 3:
+                    new_v = v.copy()
+                    new_v['source.issn'] = f"{issns[:3]}... (total: {len(issns)})"
+                    sanitized[k] = new_v
+                else:
+                    sanitized[k] = v
+            else:
+                sanitized[k] = sanitize_for_logging(v)
+        return sanitized
+    elif isinstance(data, list):
+        return [sanitize_for_logging(item) for item in data]
+    else:
+        return data
+
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=settings.openai_api_key)
 
@@ -74,7 +103,8 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
     try:
         client = LensAPIClient()
 
-        logger.info(f"Input PAyload: {input}")
+        sanitized_input = sanitize_for_logging(input.model_dump())
+        logger.info(f"Input Payload: {sanitized_input}")
         if input.query_string:
                     input.query_string = input.query_string.strip()
                     if input.query_string.startswith('AND '):
@@ -130,7 +160,8 @@ async def dynamic_lens_advanced_search(input: UserLensSearchInput) -> EnrichedSe
             if len(input.accepted_issns) > 150:
                 logger.warning(f"Large number of ISSNs ({len(input.accepted_issns)}). This might cause API issues.")
         request_payload = build_lens_request_v2(input)
-        logger.info(f"Request PAyload: {request_payload}")
+        sanitized_payload = sanitize_for_logging(request_payload)
+        logger.info(f"Request Payload: {sanitized_payload}")
 
         api_response = client.search(request_payload)
         

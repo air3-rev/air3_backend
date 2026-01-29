@@ -266,8 +266,8 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
     if not query_string:
         query_string = '"research"'  # Fallback query
         logger.warning("Empty query string provided, using fallback")
-    else: 
-        query_string = query_string.replace('"', "'")
+    # else: 
+        # query_string = query_string.replace('"', "'")
 
 
     query_clause = {
@@ -330,6 +330,7 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
         "from":offset
     }
     return payload
+
 def build_doi_search_request(dois: List[str], include_fields: Optional[List[str]] = None) -> dict:
     """
     Build a Lens API request to search for papers by DOI numbers.
