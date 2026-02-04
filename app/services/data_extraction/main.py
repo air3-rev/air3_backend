@@ -141,40 +141,39 @@ def extract_paper_data_with_full_text(labels: List[str], full_text: str) -> Dict
 
     prompt = f"""You are a precise data extractor for academic papers. Extract information for each label below.
 
-CRITICAL RULES:
-1. If a label is NOT APPLICABLE or NOT MENTIONED in the paper, return ONLY:
-   {{"summary": "N/A", "key_points": [], "extracted_items": [], "sources": []}}
-   
-2. If a label IS applicable, be EXTREMELY CONCISE:
-   - Summary: Direct answer only. No filler phrases like "This paper discusses..." or "The authors examine..."
-     * BAD: "The study uses a sample of 2,000 transfers from the top five European leagues between 2012-2021."
-     * GOOD: "2,000 transfers; top 5 European leagues; 2012-2021"
-   - Key points: Short fragments, not full sentences. Max 10 words each.
-     * BAD: "The authors found that age has an inverted U-shaped relationship with player value."
-     * GOOD: "Age effect: inverted U-shape"
-   - Use semicolons, commas, and lists instead of prose
-   - Only use full sentences when nuance is absolutely required
+        CRITICAL RULES:
+        1. If a label is NOT APPLICABLE/MENTIONED, return ONLY:
+        {{"summary": "N/A", "key_points": [], "extracted_items": [], "sources": []}}
+        
+        2. If applicable, follow these formatting standards:
+        - Summary: Direct, descriptive answer. NO introductory filler. 
+        - Clarity Requirement: Define all acronyms/codes upon first use.
+            * POOR: "SA, SW, AB"
+            * CLEAR: "Slugging Average (SA), Strikeouts (SW), At Bats (AB)"
+        - Key Points: Use "Category: Finding" format. Max 25 words per point.
+            * EXAMPLE: "Independent Variables: 9 performance metrics (SA, SW, etc.)"
+            * EXAMPLE: "Sample Size: 500 MLB players (2010-2020)"
+        - Punctuation: Use semicolons to separate distinct groups; commas for items within groups.
 
-3. Do NOT:
-   - Repeat information across labels
-   - Add generic statements not specific to this paper
-   - Include methodology details in findings or vice versa
-   - Pad responses with unnecessary context
+        3. Constraints:
+        - Do NOT use full sentences unless a relationship is too complex for a fragment.
+        - Do NOT repeat the label name in the summary.
+        - Ensure the "Summary" provides enough context to be understood without reading the full paper.
 
-Labels to extract:
-{labels_text}
+        Labels to extract:
+        {labels_text}
 
-Response format for EACH label:
-- summary: Direct answer (or "N/A" if not applicable)
-- key_points: Array of short fragments (or empty [] if N/A)
-- extracted_items: Structured data if applicable (or empty [] if N/A)
-- sources: Page/section references (or empty [] if N/A)
+        Response format for EACH label:
+        - summary: Contextualized direct answer (or "N/A")
+        - key_points: Array of short descriptive fragments (or [])
+        - extracted_items: Structured data/mappings if applicable (or [])
+        - sources: Page/section references (or [])
 
-{multi_label_instructions}
+        {multi_label_instructions}
 
-Paper text:
-{full_text[:50000]}
-"""
+        Paper text:
+        {full_text[:50000]}
+    """
 
     try:
         response = llm.invoke(prompt)
