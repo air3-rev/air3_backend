@@ -1,11 +1,11 @@
-from app.schemas.schemas import FetchByDoisInput, FetchByDoisResponse
+from app.schemas.schemas import FetchByDoisInput, FetchByDoisResponse, FetchByLensIdsInput, FetchByLensIdsResponse
 import json
 from typing import List, Optional
 from app.schemas.lens_api_request import UserLensSearchInput
 from app.schemas.search_response import EnrichedSearchResponse, PaginationMetadata
 from app.schemas.lens_api_response import ScholarResponse
 from app.schemas.schemas import GenerateSearchScopeInput, GenerateSearchScopeResponse
-from app.services.lens_client import LensAPIClient, build_lens_request, build_lens_request_v2, build_doi_search_request
+from app.services.lens_client import LensAPIClient, build_lens_request, build_lens_request_v2, build_doi_search_request, build_lens_id_search_request
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
@@ -449,4 +449,87 @@ async def fetch_papers_by_dois(input: FetchByDoisInput) -> FetchByDoisResponse:
 
     except Exception as e:
         logger.exception("Fetch by DOIs failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/fetch_by_lens_ids", response_model=FetchByLensIdsResponse)
+async def fetch_papers_by_lens_ids(input: FetchByLensIdsInput) -> FetchByLensIdsResponse:
+    """
+    Fetch papers by Lens ID numbers from Lens API.
+
+    Returns found papers, count of found papers, count of not found papers,
+    and list of Lens IDs that were not found.
+    """
+    try:
+        if not input.lens_ids:
+            return FetchByLensIdsResponse(
+                data=[],
+                found_count=0,
+                not_found_count=0,
+                not_found_lens_ids=[]
+            )
+
+        client = LensAPIClient()
+
+        # Build the search request for Lens IDs
+        request_payload = build_lens_id_search_request(input.lens_ids)
+
+        # Make the API call
+        api_response = client.search(request_payload)
+
+        # Extract Lens IDs from the found papers
+        found_lens_ids = set()
+        parsed_articles = []
+        for item in api_response.data:
+            try:
+                # Fill in missing required fields with defaults (same as advanced_search)
+                if 'authors' in item and item['authors']:
+                    for author in item['authors']:
+                        if 'collective_name' not in author:
+                            author['collective_name'] = None
+                        if 'affiliations' not in author:
+                            author['affiliations'] = []
+
+                if 'source' in item and item['source']:
+                    source = item['source']
+                    if 'type' not in source:
+                        source['type'] = None
+                    if 'issn' not in source:
+                        source['issn'] = []
+                    if 'country' not in source:
+                        source['country'] = None
+                    if 'asjc_codes' not in source:
+                        source['asjc_codes'] = None
+                    if 'asjc_subjects' not in source:
+                        source['asjc_subjects'] = None
+
+                if 'references' in item and item['references']:
+                    for ref in item['references']:
+                        if 'text' not in ref:
+                            ref['text'] = None
+
+                parsed_article = ScholarResponse(**item)
+                parsed_articles.append(parsed_article)
+
+                # Track found lens_id
+                if parsed_article.lens_id:
+                    found_lens_ids.add(parsed_article.lens_id)
+
+            except Exception as e:
+                logger.warning(f"Failed to parse article: {e}, item: {item}")
+                continue
+
+        # Determine which Lens IDs were not found
+        input_lens_ids_set = set(input.lens_ids)
+        not_found_lens_ids = list(input_lens_ids_set - found_lens_ids)
+
+        return FetchByLensIdsResponse(
+            data=parsed_articles,
+            found_count=len(parsed_articles),
+            not_found_count=len(not_found_lens_ids),
+            not_found_lens_ids=not_found_lens_ids
+        )
+
+    except Exception as e:
+        logger.exception("Fetch by Lens IDs failed")
         raise HTTPException(status_code=500, detail=str(e))

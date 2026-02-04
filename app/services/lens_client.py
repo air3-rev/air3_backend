@@ -331,6 +331,61 @@ def build_lens_request_v2(user_input: UserLensSearchInput):
     }
     return payload
 
+def build_lens_id_search_request(lens_ids: List[str], include_fields: Optional[List[str]] = None) -> dict:
+    """
+    Build a Lens API request to search for papers by Lens IDs.
+
+    Args:
+        lens_ids: List of Lens ID strings to search for
+        include_fields: Optional list of fields to include in response
+
+    Returns:
+        Dict containing the search request payload
+    """
+    if not include_fields:
+        include_fields = [
+            "title",
+            "open_access",
+            "abstract",
+            "lens_id",
+            "year_published",
+            "source_urls",
+            "scholarly_citations_count",
+            "authors",
+            "external_ids",
+            "references",
+            "references_count",
+            "references_resolved_count",
+            "source"
+        ]
+
+    # Clean lens_ids
+    cleaned_lens_ids = [lid.strip() for lid in lens_ids if lid.strip()]
+
+    query_dict = {
+        "bool": {
+            "must": [
+                {
+                    "terms": {
+                        "lens_id": cleaned_lens_ids
+                    }
+                }
+            ]
+        }
+    }
+
+    payload = {
+        "query": query_dict,
+        "include": include_fields,
+        "size": min(len(cleaned_lens_ids), 1000),  # API max is 1000
+        "from": 0
+    }
+
+    logger.info(f"Lens ID search payload: {json.dumps(payload, indent=2)}")
+
+    return payload
+
+
 def build_doi_search_request(dois: List[str], include_fields: Optional[List[str]] = None) -> dict:
     """
     Build a Lens API request to search for papers by DOI numbers.

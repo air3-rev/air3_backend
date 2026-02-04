@@ -21,6 +21,15 @@ class FetchByDoisResponse(BaseModel):
     found_count: int
     not_found_count: int
     not_found_dois: List[str]
+
+class FetchByLensIdsInput(BaseModel):
+    lens_ids: List[str] = []
+
+class FetchByLensIdsResponse(BaseModel):
+    data: List[ScholarResponse]
+    found_count: int
+    not_found_count: int
+    not_found_lens_ids: List[str]
     
 class DownloadPdfRequest(BaseModel):
     paper_id: str = Field(..., description="UUID of the paper")
