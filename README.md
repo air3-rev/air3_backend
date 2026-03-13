@@ -1,244 +1,212 @@
-# Simple Python API
+# AIR³ Backend
 
-A modern, production-ready Python API built with FastAPI, designed for Supabase authentication integration, featuring CORS support, database integration, and comprehensive testing.
+FastAPI backend for AIR³ — a systematic literature review automation platform. Handles paper discovery via Lens.org, PDF ingestion, AI-powered data extraction, and review section generation.
 
-## Features
+## Tech Stack
 
-- **FastAPI Framework**: Modern, fast web framework for building APIs
-- **Supabase Integration**: Seamless integration with Supabase authentication
-- **CORS Support**: Cross-Origin Resource Sharing enabled for frontend integration
-- **Database Integration**: SQLAlchemy ORM with support for SQLite, PostgreSQL, MySQL
-- **User Management**: User synchronization and profile management with Supabase
-- **Item Management**: Sample resource management with ownership controls
-- **Security**: JWT token validation, input validation with Pydantic
-- **Testing**: Comprehensive test suite with pytest
-- **Docker Support**: Containerized deployment with Docker and docker-compose
-- **Configuration**: Environment-based configuration management
-- **Logging**: Structured logging with file and console output
-- **API Documentation**: Auto-generated OpenAPI/Swagger documentation
+| Layer | Technology |
+|---|---|
+| Framework | FastAPI + Uvicorn |
+| Language | Python 3.13+ |
+| Package manager | `uv` |
+| ORM | SQLAlchemy 2.x |
+| Migrations | Alembic |
+| Databases | SQLite (default) / PostgreSQL + Supabase (pgvector) |
+| Auth | Supabase JWTs (PyJWT) |
+| AI / LLM | LangChain + OpenAI GPT-4o |
+| PDF Processing | PyMuPDF |
+| Paper Search | Lens.org API |
+| Validation | Pydantic v2 |
+| Linting | Ruff |
+| Type checking | mypy |
+| Testing | pytest |
 
 ## Project Structure
 
 ```
+air3_backend/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI application and middleware
-│   ├── config.py            # Configuration settings
-│   ├── database.py          # Database models and connection
-│   ├── schemas.py           # Pydantic models for request/response
-│   ├── supabase_auth.py     # Supabase authentication utilities
-│   └── routers/
-│       ├── __init__.py
-│       ├── users.py         # User management endpoints
-│       └── items.py         # Item management endpoints
+│   ├── main.py              # FastAPI app factory, CORS, middleware
+│   ├── config.py            # Settings (pydantic-settings, loads .env)
+│   ├── database.py          # SQLAlchemy models (User, Item, Journal, Category_Pairs)
+│   ├── supabase_auth.py     # JWT validation FastAPI dependencies
+│   ├── constants.py         # Chunk size, overlap, embedding model names
+│   ├── schemas/             # Pydantic request/response models
+│   ├── routers/             # Thin route handlers (delegate to services)
+│   │   ├── users.py
+│   │   ├── papers.py
+│   │   ├── pdf.py
+│   │   ├── data_ingestion.py
+│   │   ├── journals.py
+│   │   └── review_generation.py
+│   └── services/            # Business logic and AI pipelines
+│       ├── lens_client.py   # Lens.org API integration
+│       ├── journals.py      # Journal metadata queries
+│       ├── data_extraction/ # PDF → text → GPT-4o refinement
+│       ├── data_ingestion/  # PDF parse → chunk → embed → store
+│       └── review_generation/ # LangChain review section generation
 ├── tests/
-│   ├── __init__.py
-│   └── test_main.py         # Test suite
-├── requirements.txt         # Python dependencies
-├── .env.example            # Environment variables template
-├── run.py                  # Application runner
-├── Dockerfile              # Docker configuration
-├── docker-compose.yml      # Multi-service Docker setup
-└── README.md               # This file
+├── pyproject.toml
+├── Makefile
+├── Dockerfile
+├── docker-compose.yml
+└── .env.example
 ```
 
 ## Quick Start
 
-### Local Development
+```bash
+# 1. Install dependencies
+uv sync
 
-1. **Clone and setup**:
+# 2. Set up environment
+cp .env.example .env
+# Fill in required values (see Environment Variables below)
 
-   ```bash
-   git clone <repository-url>
-   cd air3-backend
-   ```
+# 3. Run the server
+make run
+# or: uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-2. **Install dependencies**:
+- API: `http://localhost:8000`
+- Swagger docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
 
-   ```bash
-     uv sync
+## Commands
 
-   ```
+```bash
+uv sync                          # Install dependencies
+make run                         # Start dev server (port 8000, auto-reload)
+make test                        # Run test suite
+uv run pytest tests/test_main.py # Run a single test file
+uv run pytest -v                 # Verbose output
+uv run pytest --cov=app          # With coverage
+uv run ruff check .              # Lint
+uv run mypy app                  # Type check
+```
 
-3. **Setup environment**:
+## Environment Variables
 
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+Copy `.env.example` to `.env`. Settings are loaded from `.env.local` then `.env`.
 
-4. **Run the application**:
-
-   ```bash
-   python run.py
-   ```
-
-   Or using uvicorn directly:
-
-   ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-5. **Access the API**:
-   - API: http://localhost:8000
-   - Documentation: http://localhost:8000/docs
-   - Alternative docs: http://localhost:8000/redoc
-   - Health check: http://localhost:8000/health
-
-### Docker Deployment
-
-1. **Build and run with Docker**:
-
-   ```bash
-   docker build -t air3-backend .
-   docker run -p 8000:8000 air3-backend
-   ```
-
-2. **Or use docker-compose for full stack**:
-
-   ```bash
-   docker-compose up -d
-   ```
-
-   This will start:
-
-   - API server on port 8000
-   - PostgreSQL database on port 5432
-   - Redis cache on port 6379
-   - Nginx reverse proxy on port 80
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `DATABASE_URL` | No | `sqlite:///./app.db` | Primary DB (users, items) |
+| `JOURNALS_DATABASE_URL` | No | `sqlite:///./journals.db` | Journal rankings DB |
+| `SUPABASE_URL` | Yes | — | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Yes | — | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | — | Supabase service role key |
+| `SUPABASE_JWT_SECRET` | Yes | — | JWT validation secret |
+| `OPENAI_API_KEY` | Yes | — | GPT-4o and embeddings |
+| `LENS_URL` | Yes | — | Lens.org API base URL |
+| `LENS_TOKEN` | Yes | — | Lens.org API token |
+| `CORS_ORIGINS` | No | `["*"]` | Allowed CORS origins |
+| `DEBUG` | No | `false` | Debug mode |
+| `PORT` | No | `8000` | Server port |
 
 ## API Endpoints
 
-### Users
-
-- `GET /api/v1/users/` - List all users (public)
-- `GET /api/v1/users/{user_id}` - Get user by ID
-- `GET /api/v1/users/me` - Get current user profile (requires auth)
-- `PUT /api/v1/users/me` - Update current user profile (requires auth)
-- `POST /api/v1/users/sync` - Sync user from Supabase (called by frontend)
-
-### Items
-
-- `POST /api/v1/items/` - Create new item (requires auth)
-- `GET /api/v1/items/` - Get items (user's own if authenticated, public if not)
-- `GET /api/v1/items/all` - Get all public items
-- `GET /api/v1/items/{item_id}` - Get item by ID
-- `PUT /api/v1/items/{item_id}` - Update item (owner only, requires auth)
-- `DELETE /api/v1/items/{item_id}` - Delete item (owner only, requires auth)
-- `GET /api/v1/items/my-items` - Get current user's items (requires auth)
-- `GET /api/v1/items/search?q={query}` - Search items
-
 ### System
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/` | No | API info |
+| GET | `/health` | No | Health check |
 
-- `GET /` - API information
-- `GET /health` - Health check
+### Users
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/v1/users/list` | No | List all users (paginated) |
+| GET | `/api/v1/users/list/{user_id}` | No | Get user by ID |
+| GET | `/api/v1/users/me` | Yes | Current user profile |
 
-## Configuration
+### Papers
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/v1/papers/advanced_search` | No | Search papers via Lens.org (filters: ranking, ISSNs, date range, fields of study) |
+| POST | `/api/v1/papers/generate_search_scope` | Yes | AI-suggested search scope based on review topic |
+| POST | `/api/v1/papers/fetch_by_dois` | No | Fetch papers by DOI list |
+| POST | `/api/v1/papers/fetch_by_lens_ids` | No | Fetch papers by Lens ID list |
 
-The application uses environment variables for configuration. Copy `.env.example` to `.env` and modify as needed:
+### PDF
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/v1/pdf/extract-pdf-metadata` | No | Extract title, abstract, authors from uploaded PDF |
+| POST | `/api/v1/pdf/debug-pdf-text` | No | Debug raw text extraction from PDF |
 
-```env
-# API Settings
-APP_NAME=Simple Python API
-DEBUG=False
+### Data Extraction
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/v1/data/extract-paper-data` | No | Extract a single label from a paper (auto-ingests if not yet chunked) |
+| POST | `/api/v1/data/batch-extract-paper-data` | No | Extract multiple labels from a paper at once |
+| POST | `/api/v1/data/download-and-store-pdf` | No | Download PDF from URL and store in Supabase storage |
+| POST | `/api/v1/data/test-pdf-download` | No | Test if a PDF URL is accessible |
 
-# Database
-DATABASE_URL=sqlite:///./app.db
+### Journals
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/v1/journals/journals` | No | Get ISSNs by field and quartile |
+| GET | `/api/v1/journals/categories/related` | No | Related categories by co-occurrence |
+| GET | `/api/v1/journals/search` | No | Search journals by name |
+| GET | `/api/v1/journals/issns` | No | Get ISSNs by journal title |
+| GET | `/api/v1/journals/ranking/{ranking}` | No | Journal titles for a ranking (FT50, HEC, IS) |
+| POST | `/api/v1/journals/load` | No | Load journal data into DB from remote sources |
+| POST | `/api/v1/journals/empty` | No | Clear all journal data from DB |
 
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_JWT_SECRET=your-supabase-jwt-secret
+### Review Generation
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/v1/review/generate-section-content` | Yes | Generate a review section using LangChain + GPT-4o (context-aware with prior sections) |
+| GET | `/api/v1/review/health` | No | Health check for review service |
 
-# CORS
-CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
+## Authentication
+
+Protected endpoints require a Supabase JWT in the `Authorization: Bearer <token>` header. The token is validated against `SUPABASE_JWT_SECRET` in `app/supabase_auth.py`.
+
+## Databases
+
+| DB | Default | Purpose |
+|---|---|---|
+| `app.db` | `sqlite:///./app.db` | Users and items |
+| `journals.db` | `sqlite:///./journals.db` | Journal rankings (SJR/Scimago) |
+| Supabase | Cloud PostgreSQL + pgvector | Paper chunks (embeddings), paper metadata, review sections |
+
+Tables are created automatically on startup for SQLite/PostgreSQL. Supabase schema is managed separately.
+
+## AI Pipeline
+
 ```
+Paper ingestion:
+  PDF URL → PyMuPDF (text extraction)
+          → RecursiveCharacterTextSplitter (500 tokens, 200 overlap)
+          → OpenAI text-embedding-3-small
+          → Supabase pgvector (paper_chunks table)
+
+Data extraction:
+  Label + paper_id → pgvector similarity search
+                   → LangChain RefineDocumentsChain
+                   → GPT-4o → structured result
+
+Review generation:
+  Section request + prior sections → LangChain + GPT-4o (temp 0.3) → draft content
+```
+
+## Docker
+
+```bash
+docker-compose up -d
+```
+
+Starts:
+- `api` — FastAPI on port 8000
+- `db` — PostgreSQL 15 on port 5432
+- `redis` — Redis 7 on port 6379
+- `nginx` — Reverse proxy on port 80
 
 ## Testing
 
-Run the test suite:
-
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=app
-
-# Run specific test file
-pytest tests/test_main.py
-
-# Run with verbose output
-pytest -v
+make test                        # All tests
+uv run pytest -v                 # Verbose
+uv run pytest --cov=app          # With coverage report
+uv run pytest tests/test_main.py # Single file
 ```
-
-## Authentication Flow
-
-1. **Register**: `POST /api/v1/auth/register` with user details
-2. **Login**: `POST /api/v1/auth/login` with credentials
-3. **Use Token**: Include `Authorization: Bearer <token>` header in requests
-4. **Access Protected Routes**: All `/api/v1/users/` and `/api/v1/items/` routes require authentication
-
-Example:
-
-```bash
-# Register
-curl -X POST "http://localhost:8000/api/v1/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "email": "test@example.com", "password": "password123"}'
-
-# Login
-curl -X POST "http://localhost:8000/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "password": "password123"}'
-
-# Use token
-curl -X GET "http://localhost:8000/api/v1/auth/me" \
-  -H "Authorization: Bearer <your-token-here>"
-```
-
-## Database
-
-The API supports multiple database backends:
-
-- **SQLite** (default): `sqlite:///./app.db`
-- **PostgreSQL**: `postgresql://user:password@localhost/dbname`
-- **MySQL**: `mysql://user:password@localhost/dbname`
-
-Database tables are created automatically on startup.
-
-## Security Features
-
-- Password hashing with bcrypt
-- JWT token authentication
-- Token expiration
-- Role-based access control (user/superuser)
-- Input validation with Pydantic
-- CORS configuration
-- SQL injection protection via SQLAlchemy ORM
-
-## Production Deployment
-
-For production deployment:
-
-1. Set `DEBUG=False` in environment
-2. Use a strong `SECRET_KEY`
-3. Configure proper database (PostgreSQL recommended)
-4. Set up reverse proxy (Nginx)
-5. Enable HTTPS
-6. Configure proper CORS origins
-7. Set up monitoring and logging
-8. Use environment variables for sensitive data
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite
-6. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
