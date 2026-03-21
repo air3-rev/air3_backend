@@ -1,22 +1,22 @@
 # app/routers/data_ingestion.py
 """Provides API endpoints to ingest data from external sources into the vector database."""
 from __future__ import annotations
-from io import BytesIO
-import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
 from app.schemas.schemas import DownloadPdfRequest
 from app.services.data_extraction.fetch import _get_supabase
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status, Response, Header
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status, Response, Header
 import httpx
 import uuid
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from app.services.data_extraction.main import extract_data as extract_data_service, extract_paper_data, extract_paper_data_with_full_text
+from app.database import User
+from app.services.data_extraction.main import extract_paper_data, extract_paper_data_with_full_text
 from app.services.data_ingestion.read import read_paper_pdf_file
 from app.services.data_ingestion.main import download_pdf_from_storage, ingest_paper
+from app.supabase_auth import get_current_user_from_supabase
 from typing import Any, Dict, Optional
 from app.config import settings
 
@@ -45,6 +45,7 @@ async def extract_paper_data_route(
     extract_label: str,
     paper_id: str,
     k: int = 5,
+    current_user: User = Depends(get_current_user_from_supabase),
 ) -> Dict[str, Any]:
     """
     Extract structured data for a label from a single paper.
@@ -63,8 +64,7 @@ async def extract_paper_data_route(
         sb = _get_supabase()
         existing = sb.table("paper_chunks").select("id").filter("metadata->>paper_id", "eq", paper_id).limit(1).execute()
 
-        # logger.info("Existing", existing )
-        logger.info(f'Existing: {existing}')
+        logger.debug(f'Existing chunks query result: {existing}')
 
         if not existing.data:  
             logger.info("Paper %s not yet ingested, ingesting now...", paper_id)
@@ -75,13 +75,13 @@ async def extract_paper_data_route(
                 raise HTTPException(status_code=404, detail=f"Paper {paper_id} not found in papers table")
 
             storage_path = paper_res.data["storage_path"]
-            logger.info(f'paper_res: {paper_res}')
-            logger.info(f'storage_path: {storage_path}')
+            logger.debug(f'paper_res: {paper_res}')
+            logger.debug(f'storage_path: {storage_path}')
             
             
             # 3️⃣ Download file from Supabase storage
             pdf_bytes = download_pdf_from_storage(storage_path)
-            logger.info(f'pdf_bytes: {pdf_bytes[0:150]}')
+            logger.debug(f'pdf_bytes preview: {pdf_bytes[0:150]}')
 
             # if not pdf_bytes:
             #     raise HTTPException(status_code=500, detail=f"Failed to download paper {paper_id} from storage")
@@ -91,7 +91,7 @@ async def extract_paper_data_route(
 
         # # 5️⃣ Run extraction now that chunks exist
         res = await run_in_threadpool(extract_paper_data, extract_label, k, paper_id)
-        logger.info(f'Final Res: {res}')
+        logger.debug(f'Final Res: {res}')
 
         return res
 
@@ -105,6 +105,7 @@ async def extract_paper_data_route(
 @router.post("/batch-extract-paper-data")
 async def batch_extract_paper_data_route(
     request: BatchExtractRequest,
+    current_user: User = Depends(get_current_user_from_supabase),
 ) -> Dict[str, Any]:
     """
     Extract structured data for multiple labels from a single paper simultaneously.
@@ -124,7 +125,7 @@ async def batch_extract_paper_data_route(
         sb = _get_supabase()
         existing = sb.table("paper_chunks").select("id").filter("metadata->>paper_id", "eq", request.paper_id).limit(1).execute()
 
-        logger.info(f'Existing chunks for paper {request.paper_id}: {existing}')
+        logger.debug(f'Existing chunks for paper {request.paper_id}: {existing}')
 
         # Always download PDF and extract full text for direct GPT-4 extraction
         logger.info("Downloading PDF for direct extraction...")
@@ -135,7 +136,7 @@ async def batch_extract_paper_data_route(
             raise HTTPException(status_code=404, detail=f"Paper {request.paper_id} not found in papers table")
 
         storage_path = paper_res.data["storage_path"]
-        logger.info(f'storage_path: {storage_path}')
+        logger.debug(f'storage_path: {storage_path}')
 
         # Download file from Supabase storage
         pdf_bytes = download_pdf_from_storage(storage_path)
@@ -145,7 +146,7 @@ async def batch_extract_paper_data_route(
         # Extract full text from PDF
         pdf_file = read_paper_pdf_file(pdf_bytes, filename=f"{request.paper_id}.pdf")
         full_text = pdf_file.content
-        logger.info(f'Extracted full text length: {len(full_text)}')
+        logger.debug(f'Extracted full text length: {len(full_text)}')
 
         # Extract data for all labels at once using full text
         try:
@@ -195,7 +196,8 @@ async def batch_extract_paper_data_route(
 
 @router.post("/test-pdf-download")
 async def test_pdf_download(
-    url: str = Query(..., description="PDF URL to test")
+    url: str = Query(..., description="PDF URL to test"),
+    current_user: User = Depends(get_current_user_from_supabase),
 ) -> Dict[str, Any]:
     """
     Test if a PDF URL is accessible and downloadable.
@@ -233,7 +235,7 @@ async def test_pdf_download(
             
             # Check content type
             content_type = response.headers.get('content-type', '').lower()
-            logger.info(f"Content-Type: {content_type}")
+            logger.debug(f"Content-Type: {content_type}")
             
             # Verify it's a PDF (some servers return application/octet-stream)
             is_pdf = (
@@ -254,7 +256,7 @@ async def test_pdf_download(
             
             # Get content size
             content_length = len(response.content)
-            logger.info(f"PDF size: {content_length} bytes ({content_length / 1024 / 1024:.2f} MB)")
+            logger.debug(f"PDF size: {content_length} bytes ({content_length / 1024 / 1024:.2f} MB)")
             
             # Verify it's actually PDF content by checking magic bytes
             if len(response.content) >= 4:
@@ -311,6 +313,7 @@ async def test_pdf_download(
 @router.post("/download-and-store-pdf")
 async def download_and_store_pdf(
     request: DownloadPdfRequest,
+    current_user: User = Depends(get_current_user_from_supabase),
 ) -> Dict[str, Any]:
     """
     Download a PDF from a URL and store it in Supabase storage.
@@ -375,7 +378,7 @@ async def download_and_store_pdf(
         
         # 3️⃣ Generate file path (same pattern as frontend)
         file_path = f"{request.user_id}/{request.review_id}/{request.paper_id}.pdf"
-        logger.info(f"Storing PDF at path: {file_path}")
+        logger.debug(f"Storing PDF at path: {file_path}")
         
         # 4️⃣ Upload to Supabase storage
         try:
@@ -387,7 +390,7 @@ async def download_and_store_pdf(
                 }
             )
             
-            logger.info(f"Upload response: {upload_response}")
+            logger.debug(f"Upload response: {upload_response}")
             
         except Exception as storage_error:
             logger.exception("Error uploading to Supabase storage")

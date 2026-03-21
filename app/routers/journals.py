@@ -3,9 +3,11 @@ API router for journal operations.
 """
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.database import User
 from app.services.journals import get_issns, get_related_categories, load_journals_db, empty_journals_db, search_journals_by_name, get_issns_by_titles, get_journals_by_ranking
+from app.supabase_auth import get_current_user_from_supabase
 
 router = APIRouter()
 
@@ -49,11 +51,13 @@ async def get_related_categories_route(
 
 
 @router.post("/load")
-async def load_journals_database():
+async def load_journals_database(
+    current_user: User = Depends(get_current_user_from_supabase),
+):
     """
     Load journals and category pairs data into the database.
     This will load data from remote URLs and insert into the database.
-    Existing data will not be duplicated.
+    Existing data will not be duplicated. Requires authentication.
     """
     try:
         load_journals_db()
@@ -63,9 +67,12 @@ async def load_journals_database():
 
 
 @router.post("/empty")
-async def empty_journals_database():
+async def empty_journals_database(
+    current_user: User = Depends(get_current_user_from_supabase),
+):
     """
     Empty the journals database by deleting all journals and category pairs data.
+    Requires authentication.
     """
     try:
         empty_journals_db()

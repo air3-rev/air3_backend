@@ -246,22 +246,3 @@ async def extract_pdf_metadata(file: UploadFile = File(...)) -> ExtractedMeta:
             authors=[],
             journal=''
         )
-
-@router.post("/debug-pdf-text")
-async def debug_pdf_text(file: UploadFile = File(...)):
-    """Debug endpoint to see what text is extracted from PDF"""
-    try:
-        file_content = await file.read()
-        doc = fitz.open(stream=file_content, filetype="pdf")
-        page = doc[0]
-        
-        simple_text = page.get_text()
-        doc.close()
-        
-        return {
-            "simple_text": simple_text[:1000],
-            "simple_text_lines": simple_text.split('\n')[:20],
-            "has_text": bool(simple_text.strip())
-        }
-    except Exception as e:
-        return {"error": str(e)}
