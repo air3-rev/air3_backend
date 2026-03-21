@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Index, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Index, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
@@ -63,16 +63,6 @@ class User(BaseModel):
     email = Column(String(100), unique=True, index=True, nullable=False)
     full_name = Column(String(100))
     avatar_url = Column(String(255))
-
-
-# Item model
-class Item(BaseModel):
-    __tablename__ = "items"
-
-    title = Column(String(100), nullable=False)
-    description = Column(Text)
-    owner_id = Column(Integer, nullable=False)
-    is_active = Column(Boolean, default=True)
 
 
 # Journal model for journals database

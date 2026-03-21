@@ -1,16 +1,12 @@
-import json
-from typing import List, Optional
-from app.schemas.lens_api_request import UserLensSearchInput
-from app.schemas.search_response import EnrichedSearchResponse, PaginationMetadata
-from app.schemas.lens_api_response import ScholarResponse
-from app.services.lens_client import LensAPIClient, build_lens_request, build_lens_request_v2
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
 
 from app.database import get_db, User
-from app.schemas.user import UserResponse, UserUpdate, UserCreate
-from app.supabase_auth import get_current_user_from_supabase, get_optional_user
+from app.schemas.user import UserResponse
+from app.supabase_auth import get_current_user_from_supabase
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
