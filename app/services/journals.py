@@ -6,8 +6,9 @@ import logging
 from typing import List
 from urllib.parse import unquote
 
-import requests
+import httpx
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.database import Journal, Category_Pairs, get_journals_db, JournalsSessionLocal, JournalBase, journals_engine
 
@@ -101,6 +102,13 @@ def get_related_categories(categories: List[str], limit: int = 10) -> List[dict]
         db.close()
 
 
+def _fetch_json(url: str):
+    """Fetch JSON data from a URL (sync helper for threadpool use)."""
+    response = httpx.get(url)
+    response.raise_for_status()
+    return response.json()
+
+
 def load_journals_db():
     """Load journals and category pairs data into the database."""
     logger.info("Loading journals database...")
@@ -116,9 +124,7 @@ def load_journals_db():
         existing_title_fields = {(row.title, row.field) for row in session.query(Journal.title, Journal.field).all()}
 
         # Load JSON data from remote URL
-        response = requests.get(DATA_URL)
-        response.raise_for_status()
-        data = response.json()
+        data = _fetch_json(DATA_URL)
 
         journals_to_insert = []
         skipped_duplicates = 0
@@ -169,7 +175,7 @@ def load_journals_db():
         existing_pairs = {(row.category_1, row.category_2) for row in session.query(Category_Pairs.category_1, Category_Pairs.category_2).all()}
 
         # Load category pairs JSON data from remote URL
-        response = requests.get(CATEGORY_PAIRS_URL)
+        response = httpx.get(CATEGORY_PAIRS_URL)
         response.raise_for_status()
         pairs_data = response.json()
 
@@ -300,7 +306,7 @@ def get_journals_by_ranking(ranking: str) -> List[str]:
     Returns:
         List of journal title strings
     """
-    from app.routers.papers import FT50_ISSN_NUMBERS, HEC_Accounting_ISSN_NUMBERS, IS_Information_Systems_ISSN_NUMBERS
+    from app.lib.issn_lists import FT50_ISSN_NUMBERS, HEC_Accounting_ISSN_NUMBERS, IS_Information_Systems_ISSN_NUMBERS
 
     if ranking == "FT50":
         issns = FT50_ISSN_NUMBERS
@@ -383,9 +389,7 @@ def initialize_journals_db():
             existing_pairs = {(row.category_1, row.category_2) for row in session.query(Category_Pairs.category_1, Category_Pairs.category_2).all()}
 
             # Load category pairs JSON data from remote URL
-            response = requests.get(CATEGORY_PAIRS_URL)
-            response.raise_for_status()
-            pairs_data = response.json()
+            pairs_data = _fetch_json(CATEGORY_PAIRS_URL)
 
             pairs_to_insert = []
             skipped_pair_duplicates = 0

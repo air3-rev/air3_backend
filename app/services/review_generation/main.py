@@ -6,7 +6,6 @@ from datetime import datetime
 
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 
 from app.services.data_extraction.fetch import _get_supabase
 from app.schemas.review_generation import (
@@ -27,7 +26,7 @@ class ReviewGenerationService:
 
     def __init__(self):
         self.llm = ChatOpenAI(
-            model="gpt-4o",
+            model=settings.review_model,
             temperature=0.3,  # Lower temperature for more consistent academic writing
             max_tokens=2000,
             api_key = settings.openai_api_key
@@ -265,19 +264,19 @@ INSTRUCTIONS:
 Write the section content:"""
         )
 
-        chain = LLMChain(llm=self.llm, prompt=prompt)
+        chain = prompt | self.llm
 
         subsections_text = "\n".join([f"- {sub['title']}: {sub['description']}" for sub in context.section.subsections])
 
-        result = await chain.arun(
-            section_title=context.section.title,
-            section_description=context.section.description,
-            data_summary=data_summary,
-            previous_context=previous_context,
-            subsections=subsections_text
-        )
+        result = await chain.ainvoke({
+            "section_title": context.section.title,
+            "section_description": context.section.description,
+            "data_summary": data_summary,
+            "previous_context": previous_context,
+            "subsections": subsections_text,
+        })
 
-        return result.strip()
+        return result.content.strip()
 
     async def _generate_subsection_content(self, context: SubsectionContext) -> str:
         """Generate content for a subsection using LangChain."""
@@ -322,18 +321,18 @@ INSTRUCTIONS:
 Write the subsection content:"""
         )
 
-        chain = LLMChain(llm=self.llm, prompt=prompt)
+        chain = prompt | self.llm
 
-        result = await chain.arun(
-            section_title=context.section.title,
-            subsection_title=context.subsection["title"],
-            subsection_description=context.subsection["description"],
-            section_content=context.section_content,
-            data_summary=data_summary,
-            previous_context=previous_context
-        )
+        result = await chain.ainvoke({
+            "section_title": context.section.title,
+            "subsection_title": context.subsection["title"],
+            "subsection_description": context.subsection["description"],
+            "section_content": context.section_content,
+            "data_summary": data_summary,
+            "previous_context": previous_context,
+        })
 
-        return result.strip()
+        return result.content.strip()
 
     def _prepare_extracted_data_summary(self, extracted_data: List[PaperExtractedData]) -> str:
         """Prepare a summarized version of extracted data for the LLM prompt."""

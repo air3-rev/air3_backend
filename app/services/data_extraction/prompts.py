@@ -49,41 +49,6 @@ def get_multi_label_format_instructions(labels: List[str]) -> str:
 
 Each label should have its own object with summary, key_points, extracted_items, and sources fields."""
 
-# _INITIAL_PROMPT_TMPL = """You are a precise data extractor.
-
-# You will read ONE context block (variable: {{context}}) and produce a compact JSON object.
-# Follow these format rules strictly:
-# {format_instructions}
-
-# Context you will receive contains:
-# CHUNK_ID, SIMILARITY, CONTENT, and METADATA_JSON.
-
-# Only include fields required by the format above.
-# Do NOT add commentary or prose outside JSON.
-
-# Context:
-# {context}
-# """
-
-# _REFINE_PROMPT_TMPL = """You are refining an existing JSON doc using NEW context (variable: {{context}}).
-# Update only where the new context adds value or corrects errors. Keep the schema IDENTICAL.
-
-# Rules:
-# - Preserve prior good content; merge new details succinctly.
-# - De-duplicate aggressively.
-# - If contradictions exist, prefer NEW context.
-# - Append a new source for this chunk using its CHUNK_ID.
-
-# Follow these format rules strictly:
-# {format_instructions}
-
-# Current JSON:
-# {prev_response}
-
-# New context:
-# {context}
-# """
-
 _INITIAL_PROMPT_TMPL = """You are a precise data extractor focused on brevity and clarity.
 
 Extract ONLY the most important findings from this context block. Prioritize core results and key insights.

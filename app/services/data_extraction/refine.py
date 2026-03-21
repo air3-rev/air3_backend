@@ -5,8 +5,6 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, TypedDict, cast
 
-from langchain.chains import LLMChain
-from langchain.chains.combine_documents.refine import RefineDocumentsChain
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
@@ -30,7 +28,7 @@ class RefinedDoc(TypedDict, total=False):
 def _llm() -> ChatOpenAI:
     base = ChatOpenAI(
         api_key=settings.openai_api_key,
-        model="gpt-4o-mini",
+        model=settings.extraction_model,
         temperature=0.0,
         max_tokens=900,
         timeout=60,
@@ -125,13 +123,6 @@ def refine_relevant_chunks(chunks: List[Chunk]) -> Dict[str, Any]:
     llm = _llm()
 
     # Prompts & chains
-    document_prompt = PromptTemplate(
-        input_variables=["page_content"],
-        template="{page_content}",
-    )
-    document_variable_name = "context"
-    initial_response_name = "prev_response"
-
     initial_prompt = PromptTemplate.from_template(_INITIAL_PROMPT_TMPL).partial(
         format_instructions=FORMAT_INSTRUCTIONS
     )
@@ -139,29 +130,20 @@ def refine_relevant_chunks(chunks: List[Chunk]) -> Dict[str, Any]:
         format_instructions=FORMAT_INSTRUCTIONS
     )
 
-    initial_llm_chain = LLMChain(llm=llm, prompt=initial_prompt)
-    refine_llm_chain = LLMChain(llm=llm, prompt=refine_prompt)
+    initial_chain = initial_prompt | llm
+    refine_chain = refine_prompt | llm
 
-    chain = RefineDocumentsChain(
-        initial_llm_chain=initial_llm_chain,
-        refine_llm_chain=refine_llm_chain,
-        document_prompt=document_prompt,
-        document_variable_name=document_variable_name,
-        initial_response_name=initial_response_name,
-        return_intermediate_steps=False,
-        verbose=False,
-    )
-
-    # Prepare docs and run the refine algorithm
+    # Prepare docs and run the refine algorithm manually
     docs = _chunks_to_documents(chunks)
 
-    # RefineDocumentsChain implements Runnable; invoke(docs) -> str (or dict in older LC).
-    result = chain.invoke(docs)
-    if isinstance(result, dict):
-        # Older versions may return {"output_text": "..."}
-        output_text = cast(str, result.get("output_text", "")) or cast(str, result.get("text", "")) or ""
-    else:
-        output_text = cast(str, result)
+    # Run initial prompt on the first document
+    first_result = initial_chain.invoke({"context": docs[0].page_content})
+    output_text = cast(str, first_result.content if hasattr(first_result, "content") else str(first_result))
+
+    # Iteratively refine with remaining documents
+    for doc in docs[1:]:
+        refine_result = refine_chain.invoke({"context": doc.page_content, "prev_response": output_text})
+        output_text = cast(str, refine_result.content if hasattr(refine_result, "content") else str(refine_result))
 
     refined: RefinedDoc = _json_loads_strict(output_text)
 
