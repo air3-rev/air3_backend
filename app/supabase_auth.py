@@ -13,18 +13,20 @@ security = HTTPBearer()
 
 
 def verify_supabase_token(token: str) -> Optional[dict]:
-    """
-    Verify Supabase JWT token
-    In a real implementation, you would verify against Supabase's public key
-    """
+    """Verify Supabase JWT token signature and expiry using the shared JWT secret."""
+    secret = settings.supabase_jwt_secret
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SUPABASE_JWT_SECRET is not configured",
+        )
     try:
-        # This is a simplified example - in production you should:
-        # 1. Fetch Supabase's public key from their JWKS endpoint
-        # 2. Verify the token signature properly
-        # 3. Check token expiration and other claims
-        
-        # For now, we'll decode without verification (NOT for production)
-        payload = jwt.decode(token, options={"verify_signature": False})
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            options={"verify_exp": True},
+        )
         return payload
     except jwt.InvalidTokenError:
         return None
