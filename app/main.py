@@ -34,9 +34,10 @@ async def lifespan(app: FastAPI):
     JournalBase.metadata.create_all(bind=journals_engine)
     logger.info("Database tables created")
 
-    # Initialize journals database if empty
+    # Initialize journals database if empty (run in threadpool to avoid blocking)
+    from starlette.concurrency import run_in_threadpool
     try:
-        initialize_journals_db()
+        await run_in_threadpool(initialize_journals_db)
     except Exception as e:
         logger.error(f"Failed to initialize journals database: {e}")
         # Don't fail startup, but log the error
@@ -67,7 +68,7 @@ app.add_middleware(
 )
 
 # Add trusted host middleware for security
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "*"])
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
 
 # Global exception handler
