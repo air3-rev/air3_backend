@@ -3,12 +3,10 @@
 from fastapi import HTTPException
 import logging
 
-# import tiktoken
 from app.services.data_extraction.fetch import _get_supabase
-from fastapi import UploadFile
 
 from app.services.data_ingestion.process import chunk_document
-from app.services.data_ingestion.read import parse_pdf_into_document, read_paper_pdf_file, read_pdf_file
+from app.services.data_ingestion.read import parse_pdf_into_document, read_paper_pdf_file
 from app.services.data_ingestion.store import store_in_vector_db
 
 logger = logging.getLogger(__name__)
