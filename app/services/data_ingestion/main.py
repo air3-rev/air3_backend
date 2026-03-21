@@ -1,6 +1,6 @@
 """Provides API endpoints to ingest data from external sources into the vector database."""
 
-from http.client import HTTPException
+from fastapi import HTTPException
 import logging
 
 # import tiktoken
