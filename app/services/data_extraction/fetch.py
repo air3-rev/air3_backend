@@ -16,11 +16,18 @@ from app.services.data_ingestion.types import Chunk
 
 
 logger = logging.getLogger(__name__)
-_embeddings = OpenAIEmbeddings(
-    model=EMBED_MODEL,
-    api_key=settings.openai_api_key,   # <-- snake_case field recommended
-)
+_embeddings: Optional[OpenAIEmbeddings] = None
 _supabase: Optional[Client] = None
+
+
+def _get_embeddings() -> OpenAIEmbeddings:
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = OpenAIEmbeddings(
+            model=EMBED_MODEL,
+            api_key=settings.openai_api_key,
+        )
+    return _embeddings
 
 
 def _get_supabase() -> Client:
@@ -45,7 +52,7 @@ def fetch_relevant_chunks(
         return []
 
     # 1) Embed the label
-    qvec = _embeddings.embed_query(label)
+    qvec = _get_embeddings().embed_query(label)
 
     # 2) Call RPC (uses pgvector index)
     params = {
@@ -93,7 +100,7 @@ def fetch_paper_chunks(
         return []
 
     # 1️⃣ Embed the label
-    query_embedding = _embeddings.embed_query(label)
+    query_embedding = _get_embeddings().embed_query(label)
 
     # 2️⃣ Call Supabase RPC for similarity search
     params = {

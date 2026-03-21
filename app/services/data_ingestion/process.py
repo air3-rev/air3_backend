@@ -1,21 +1,15 @@
 import logging
 from typing import List
 
-from app.constants import CHUNK_SIZE
+from app.constants import CHUNK_SIZE, CHUNK_OVERLAP
 import tiktoken
 from langchain_core.documents import Document
 
-# from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.services.data_ingestion.types import PdfDocument
 
 logger = logging.getLogger(__name__)
-
-
-CHUNK_OVERLAP = 200
-# EMBED_MODEL = "text-embedding-3-large"  # 3072-d
-# embeddings_model = OpenAIEmbeddings(model=EMBED_MODEL)
 
 
 def _tiktoken_len(text: str) -> int:
@@ -54,25 +48,4 @@ def chunk_document(pdf_doc: PdfDocument) -> List[Document]:
             )
         )
 
-    # logger.info(
-    #     "Chunked document %s into %d chunks",
-    #     getattr(pdf_doc, "doc_id", "unknown"),
-    #     len(docs),
-    # )
     return docs
-
-
-# def embed_chunks(docs: List[Document]) -> List[List[float]]:
-#     """
-#     Embed chunks in one call (LangChain handles its own batching internally).
-#     Use this only if you plan to call SupabaseVectorStore.add_vectors(...).
-#     If you’ll use add_documents(...), you can skip explicit embedding.
-#     """
-#     if not docs:
-#         logger.warning("No documents provided to embed_chunks")
-#         return []
-
-#     texts = [d.page_content for d in docs]
-#     vectors = embeddings_model.embed_documents(texts)  # single call, no manual loop
-#     logger.info("Embedded %d chunks", len(vectors))
-#     return vectors
