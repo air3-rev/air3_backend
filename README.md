@@ -24,13 +24,15 @@ FastAPI backend for AIR³ — a systematic literature review automation platform
 ## Project Structure
 
 ```
-air3_backend/
+backend/
 ├── app/
 │   ├── main.py              # FastAPI app factory, CORS, middleware
 │   ├── config.py            # Settings (pydantic-settings, loads .env)
-│   ├── database.py          # SQLAlchemy models (User, Item, Journal, Category_Pairs)
+│   ├── database.py          # SQLAlchemy models (User, Journal, Category_Pairs)
 │   ├── supabase_auth.py     # JWT validation FastAPI dependencies
 │   ├── constants.py         # Chunk size, overlap, embedding model names
+│   ├── lib/
+│   │   └── issn_lists.py    # ISSN constants (FT50, HEC, IS)
 │   ├── schemas/             # Pydantic request/response models
 │   ├── routers/             # Thin route handlers (delegate to services)
 │   │   ├── users.py
@@ -46,6 +48,14 @@ air3_backend/
 │       ├── data_ingestion/  # PDF parse → chunk → embed → store
 │       └── review_generation/ # LangChain review section generation
 ├── tests/
+│   ├── test_main.py             # Core API endpoint tests
+│   ├── test_auth.py             # JWT validation and user creation (18 tests)
+│   ├── test_data_ingestion.py   # Chunking and vector storage (23 tests)
+│   ├── test_data_extraction.py  # Extraction pipeline (23 tests)
+│   ├── test_review_generation.py # Review generation + ownership (21 tests)
+│   ├── test_lens_client.py      # Lens API client tests
+│   ├── test_journals.py         # Journal service tests
+│   └── test_schemas.py          # Pydantic schema validation tests
 ├── pyproject.toml
 ├── Makefile
 ├── Dockerfile
@@ -131,15 +141,14 @@ Copy `.env.example` to `.env`. Settings are loaded from `.env.local` then `.env`
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | POST | `/api/v1/pdf/extract-pdf-metadata` | No | Extract title, abstract, authors from uploaded PDF |
-| POST | `/api/v1/pdf/debug-pdf-text` | No | Debug raw text extraction from PDF |
 
 ### Data Extraction
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/v1/data/extract-paper-data` | No | Extract a single label from a paper (auto-ingests if not yet chunked) |
-| POST | `/api/v1/data/batch-extract-paper-data` | No | Extract multiple labels from a paper at once |
-| POST | `/api/v1/data/download-and-store-pdf` | No | Download PDF from URL and store in Supabase storage |
-| POST | `/api/v1/data/test-pdf-download` | No | Test if a PDF URL is accessible |
+| GET | `/api/v1/data/extract-paper-data` | Yes | Extract a single label from a paper (auto-ingests if not yet chunked) |
+| POST | `/api/v1/data/batch-extract-paper-data` | Yes | Extract multiple labels from a paper at once |
+| POST | `/api/v1/data/download-and-store-pdf` | Yes | Download PDF from URL and store in Supabase storage |
+| POST | `/api/v1/data/test-pdf-download` | Yes | Test if a PDF URL is accessible |
 
 ### Journals
 | Method | Path | Auth | Description |
@@ -149,8 +158,8 @@ Copy `.env.example` to `.env`. Settings are loaded from `.env.local` then `.env`
 | GET | `/api/v1/journals/search` | No | Search journals by name |
 | GET | `/api/v1/journals/issns` | No | Get ISSNs by journal title |
 | GET | `/api/v1/journals/ranking/{ranking}` | No | Journal titles for a ranking (FT50, HEC, IS) |
-| POST | `/api/v1/journals/load` | No | Load journal data into DB from remote sources |
-| POST | `/api/v1/journals/empty` | No | Clear all journal data from DB |
+| POST | `/api/v1/journals/load` | Yes | Load journal data into DB from remote sources |
+| POST | `/api/v1/journals/empty` | Yes | Clear all journal data from DB |
 
 ### Review Generation
 | Method | Path | Auth | Description |
@@ -166,7 +175,7 @@ Protected endpoints require a Supabase JWT in the `Authorization: Bearer <token>
 
 | DB | Default | Purpose |
 |---|---|---|
-| `app.db` | `sqlite:///./app.db` | Users and items |
+| `app.db` | `sqlite:///./app.db` | Users |
 | `journals.db` | `sqlite:///./journals.db` | Journal rankings (SJR/Scimago) |
 | Supabase | Cloud PostgreSQL + pgvector | Paper chunks (embeddings), paper metadata, review sections |
 
@@ -183,8 +192,8 @@ Paper ingestion:
 
 Data extraction:
   Label + paper_id → pgvector similarity search
-                   → LangChain RefineDocumentsChain
-                   → GPT-4o → structured result
+                   → LCEL iterative refinement (prompt | llm)
+                   → GPT-4o-mini → structured result
 
 Review generation:
   Section request + prior sections → LangChain + GPT-4o (temp 0.3) → draft content
@@ -205,8 +214,14 @@ Starts:
 ## Testing
 
 ```bash
-make test                        # All tests
-uv run pytest -v                 # Verbose
-uv run pytest --cov=app          # With coverage report
-uv run pytest tests/test_main.py # Single file
+make test                                  # All tests
+uv run pytest -v                           # Verbose
+uv run pytest --cov=app                    # With coverage report
+uv run pytest tests/test_main.py           # Single file
+uv run pytest tests/test_auth.py           # Auth tests (JWT, user creation)
+uv run pytest tests/test_data_ingestion.py # Ingestion pipeline tests
+uv run pytest tests/test_data_extraction.py # Extraction pipeline tests
+uv run pytest tests/test_review_generation.py # Review generation tests
 ```
+
+Tests use in-memory SQLite with `StaticPool` and mock external services (Supabase, OpenAI, Lens API). No environment variables or network access required to run tests.
